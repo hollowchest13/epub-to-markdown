@@ -18,7 +18,7 @@ def check_ukrainian_language(filepath, text):
 
 
 def cleaner():
-    root_folder = Path("/home/hollowchest13/Завантажене/result")
+    root_folder = Path("d:/Завантаження/result")
     root = Path(root_folder)
 
     for filepath in root.rglob("*.md"):

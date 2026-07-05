@@ -2,7 +2,15 @@ from pathlib import Path
 from datetime import datetime
 import hashlib
 import re
+import time
+import json
+from google import genai
+from google.genai.errors import ClientError
+from typing import Any
 
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def clean_filename(*, file_path: Path):
     # Прибираємо розширення (.pdf, .epub)
@@ -45,5 +53,36 @@ def clean_markdown(text):
     text = re.sub(r"\(.*?\.html#filepos\d+\)", "", text)
     text = re.sub(r"!\[.*?\]\(images/.*?\)", "", text)
     text = re.sub(r"\[\d+\]", "", text)
+    text = re.sub(r"\(\#[a-z0-9]+-tbl-\d+\)", "", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
+
+def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, contents: list[Any], expect_json: bool = False) -> Any:
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(model=model, contents=contents)
+            text = response.text or ""
+            if not expect_json:
+                return text
+            clean_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+            return json.loads(clean_text)
+        except ClientError as e:
+            logger.error(f"Attempt {attempt + 1} unsuccessful: {e}")
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(60)
+        except json.JSONDecodeError as e:
+            logger.error(f"Attempt {attempt + 1}: Invalid JSON received: {e}")
+            if attempt == max_retries - 1:
+                raise RuntimeError(f"Could not get a valid JSON response after {max_retries} attempts") from e
+            time.sleep(2)
+        except Exception as e:
+            if "503" in str(e):
+                wait_time = 2 ** attempt * 5
+                logger.error(f"Server overloaded, waiting {wait_time} seconds...")
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(wait_time)
+            else:
+                raise
+    raise RuntimeError(f"Could not get a response after {max_retries} attempts")

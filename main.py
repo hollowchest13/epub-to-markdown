@@ -3,30 +3,20 @@ from ebooklib import epub
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
 import re
-import json
 import time
-from enum import Enum
 from pathlib import Path
 from google import genai
-from utils import clean_markdown
+from src.utils import clean_markdown,call_gemini_api
 from google.genai import types
-from google.genai.errors import ClientError
-from epub import extract_epub_metadata, get_epub_images, replace_images
-from pdf import extract_pdf_metadata, split_pdf
-from saver import save_epub_chapter, save_pdf_chapter
+from src.epub import extract_epub_metadata, get_epub_images, replace_images
+from src.pdf import extract_pdf_metadata, split_pdf
+from src.saver import save_epub_chapter, save_pdf_chapter,save_all_chapters
+from src.models import BookFormat
 from dotenv import load_dotenv
+import os
 import logging
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-load_dotenv()
-client = genai.Client()
-
-
-class BookFormat(Enum):
-    EPUB = ".epub"
-    PDF = ".pdf"
 
 
 def collect_chapters_from_text(*, content: str) -> list[tuple[str, str]]:
@@ -46,11 +36,11 @@ def collect_chapters_from_text(*, content: str) -> list[tuple[str, str]]:
     return valid_chapters
 
 
-def collect_epub_chapters(*, book) -> list[tuple[str, str]]:
+def collect_epub_chapters(*, book:epub.EpubBook,client:genai.Client,model:str) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
     ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
     img_dict = get_epub_images(book=book)
-    image_descriptions = images_to_md(img_dict=img_dict) if img_dict else {}
+    image_descriptions = images_to_md(client=client,model=model,img_dict=img_dict) if img_dict else {}
 
     # Перший прохід — збираємо валідні розділи, щоб знати total_chapters
     valid_chapters = []
@@ -80,41 +70,21 @@ CHAPTER_SAVERS: dict = {
 }
 
 
-def save_all_chapters(
-    *,
-    valid_chapters: list[tuple[str, str]],
-    output_folder: str,
-    metadata: dict,
-    file_type: BookFormat,
-) -> None:
-    total_chapters = len(valid_chapters)
-    for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
-        CHAPTER_SAVERS[file_type](
-            content=text,
-            chapter_name=chapter_name,
-            chapter_index=index,
-            total_chapters=total_chapters,
-            output_folder=output_folder,
-            book_metadata=metadata,
-            index=index,
-        )
-        logger.info(f"[{index}/{total_chapters}] Збережено: {chapter_name}")
-
-
-def epub_to_markdown_pro(epub_path, output_folder):
+def epub_to_markdown_pro(*,client:genai.Client,model:str,epub_path:Path, output_folder:Path):
     if not Path.exists(output_folder):
         Path.mkdir(output_folder, parents=True, exist_ok=True)
     file_type = BookFormat.EPUB
 
     book = epub.read_epub(epub_path)
     metadata = extract_epub_metadata(book=book, epub_path=epub_path)
-    valid_chapters = collect_epub_chapters(book=book)
+    valid_chapters = collect_epub_chapters(book=book,client=client,model=model)
     total_chapters = len(valid_chapters)
     save_all_chapters(
         valid_chapters=valid_chapters,
         output_folder=output_folder,
         metadata=metadata,
         file_type=file_type,
+        saver=CHAPTER_SAVERS
     )
 
     logger.info(f"\nГотово! {total_chapters} розділів → {output_folder}/")
@@ -123,48 +93,46 @@ def epub_to_markdown_pro(epub_path, output_folder):
     )
 
 
-def pdf_to_markdown_pro(pdf_path: Path, output_folder):
+def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, model: str):
     if not Path(output_folder).exists():
         Path(output_folder).mkdir(parents=True, exist_ok=True)
+
     file_type = BookFormat.PDF
     chunks = split_pdf(pdf_path=pdf_path, chunk_size=80)
     full_text = ""
     max_retries = 5
+
+    prompt_text = (
+        "Convert this PDF into Markdown COMPLETELY, without omissions or abbreviations. "
+        "This is CRITICALLY IMPORTANT: process every page and every heading, even if the text is long. "
+        "Do not summarize, do not shorten, do not skip sections. "
+        "Use only the provided text. If you are not sure what exactly is written, leave it as the original. "
+        "Preserve the structure of the document: headings, lists, tables. "
+        "If you encounter a table, save it in Markdown table format. "
+        "If you encounter a graph, diagram, scheme, flowchart, or mind map, provide a text description "
+        "of up to 100 words: type, main elements and connections, main trend, or conclusion. "
+        "Return all descriptions and tables in the language of the original document, not in the language of this instruction. "
+        "Correct obvious OCR errors (broken words, extra spaces, incorrectly recognized characters). "
+        "Return only the full Markdown without explanations and without abbreviations."
+    )
+
+    # Process each chunk of the PDF separately and concatenate the resulting Markdown
     for chunk in chunks:
-        for attempt in range(max_retries):
-            try:
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=[
-                        types.Part.from_bytes(data=chunk, mime_type="application/pdf"),
-                        "Convert this PDF into Markdown COMPLETELY, without omissions or abbreviations. "
-                        "This is CRITICALLY IMPORTANT: process every page and every heading, even if the text is long. "
-                        "Do not summarize, do not shorten, do not skip sections. "
-                        "Use only the provided text. If you are not sure what exactly is written, leave it as the original. "
-                        "Preserve the structure of the document: headings, lists, tables. "
-                        "If you encounter a table, save it in Markdown table format. "
-                        "If you encounter a graph, diagram, scheme, flowchart, or mind map, provide a text description "
-                        "of up to 100 words: type, main elements and connections, main trend, or conclusion. "
-                        "Return all descriptions and tables in the language of the original document, not in the language of this instruction. "
-                        "Correct obvious OCR errors (broken words, extra spaces, incorrectly recognized characters). "
-                        "Return only the full Markdown without explanations and without abbreviations.",
-                    ],
-                )
-                full_text += response.text or ""
-                break  # успіх — виходимо з retry
-            except ClientError as e:
-                logger.error(f"Спроба {attempt + 1} невдала: {e}")
-                if attempt == 1:
-                    raise  # дві спроби — пробрасуємо вгору
-                time.sleep(60)
-            except Exception as e:
-                if "503" in str(e):
-                    wait_time = 2**attempt * 5  # 1, 2, 4, 8... секунд
-                    logger.error(f"Сервер перевантажений, чекаю {wait_time} секунд...")
-                    time.sleep(wait_time)
-                else:
-                    raise
+        contents = [
+            types.Part.from_bytes(data=chunk, mime_type="application/pdf"),
+            prompt_text,
+        ]
+        chunk_text = call_gemini_api(
+            client=client,
+            model=model,
+            max_retries=max_retries,
+            contents=contents,
+            expect_json=False,
+        )
+        full_text += chunk_text or ""
+        # Small delay between chunks to avoid hammering the API
         time.sleep(4)
+
     word_count = len(full_text.split())
     valid_chapters = collect_chapters_from_text(content=full_text)
     total_chapters = len(valid_chapters)
@@ -174,12 +142,13 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder):
         output_folder=output_folder,
         metadata=metadata,
         file_type=file_type,
+        saver=CHAPTER_SAVERS
     )
     logger.info(f"\nГотово! {total_chapters} розділів → {output_folder}/")
     logger.info(f"Книга: {metadata['title']} | ~{word_count:,} слів")
 
 
-def images_to_md(*, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[str, str]:
+def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[str, str]:
     items = list(img_dict.items())
     all_results = {}
 
@@ -188,7 +157,7 @@ def images_to_md(*, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[st
         parts = []
         index_to_name = {}
         for idx, (name, img_data) in enumerate(batch):
-            parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpg"))
+            parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpeg"))
             index_to_name[idx] = name
 
         prompt_text = (
@@ -207,33 +176,7 @@ def images_to_md(*, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[st
         parts.append(prompt_text)
         result = {}
         max_retries = 5
-
-        for attempt in range(max_retries):
-            try:
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=parts,
-                )
-                text = response.text or ""
-                result = json.loads(text.strip().strip("```json").strip("```"))
-                break
-            except ClientError as e:
-                logger.error(f"Спроба {attempt + 1} невдала: {e}")
-                if attempt == 1:
-                    raise
-                time.sleep(60)
-            except json.JSONDecodeError as e:
-                logger.error(f"Невалідний JSON від моделі: {e}")
-                result = {}
-                break
-            except Exception as e:
-                if "503" in str(e):
-                    wait_time = 2**attempt * 5  # 1, 2, 4, 8... секунд
-                    logger.error(f"Сервер перевантажений, чекаю {wait_time} секунд...")
-                    time.sleep(wait_time)
-                else:
-                    raise
-
+        call_gemini_api(client=client,model=model,max_retries=max_retries,contents=parts,expect_json=True)
         all_results.update(
             {
                 index_to_name[int(idx)]: desc
@@ -251,16 +194,19 @@ def main():
     books_dir: Path = base_dir / "books"
     books_dir.mkdir(parents=True, exist_ok=True)
     output_dir: Path = base_dir / "output"
+    load_dotenv()
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
+    MODEL_VERSION="gemini-2.5-flash"
     for file in books_dir.iterdir():
         file_path = books_dir / file.name
         file_suffix = file.suffix
         try:
             match file_suffix:
                 case ".epub":
-                    epub_to_markdown_pro(file_path, output_dir / file.name)
+                    epub_to_markdown_pro(epub_path=file_path, output_folder=output_dir / file.name,client=client,model=MODEL_VERSION)
                 case ".pdf":
                     pdf_to_markdown_pro(
-                        pdf_path=file_path, output_folder=output_dir / file.name
+                        pdf_path=file_path, output_folder=output_dir / file.name,client=client,model=MODEL_VERSION
                     )
         except Exception as e:
             logger.error(f"Помилка при обробці {file.name}: {e}")
