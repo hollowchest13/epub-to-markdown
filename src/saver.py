@@ -78,11 +78,11 @@ def save_all_chapters(
     output_folder: Path,
     metadata: dict,
     file_type: BookFormat,
-    saver:dict
+    saver:Callable
 ) -> None:
     total_chapters = len(valid_chapters)
     for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
-        saver[file_type](
+        saver(
             content=text,
             chapter_name=chapter_name,
             chapter_index=index,

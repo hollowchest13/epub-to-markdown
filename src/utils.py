@@ -7,6 +7,7 @@ import json
 from google import genai
 from google.genai.errors import ClientError
 from typing import Any
+from google.genai import types
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -86,3 +87,42 @@ def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, conte
             else:
                 raise
     raise RuntimeError(f"Could not get a response after {max_retries} attempts")
+def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[str, str]:
+    items = list(img_dict.items())
+    all_results = {}
+
+    for i in range(0, len(items), batch_size):
+        batch = items[i : i + batch_size]
+        parts = []
+        index_to_name = {}
+        for idx, (name, img_data) in enumerate(batch):
+            parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpeg"))
+            index_to_name[idx] = name
+
+        prompt_text = (
+            "Carefully analyze EACH image separately by its sequence number. "
+            "Do not mix up the images. "
+            "For each, determine its type: table, graph, diagram/scheme, or decorative image. "
+            "If it is a data table, return its content in Markdown table format. "
+            "If it is a graph (bar, line, etc.), provide a description of up to 100 words: type, trend, key values. "
+            "If it is a diagram or scheme (flowchart, architectural, mind map, etc.), "
+            "provide a description of up to 100 words: what the scheme shows, main elements and connections, main conclusion. "
+            "If it is a decorative image, photo, or illustration without data, return null. "
+            "Return all descriptions and tables in the language of the original document, not in the language of this instruction. "
+            'Format the response strictly as valid JSON: {"0": "...", "1": null, ...}. '
+            "No explanations, no markdown formatting (no code blocks like ```json), only the raw JSON string."
+        )
+        parts.append(prompt_text)
+        result = {}
+        max_retries = 5
+        call_gemini_api(client=client,model=model,max_retries=max_retries,contents=parts,expect_json=True)
+        all_results.update(
+            {
+                index_to_name[int(idx)]: desc
+                for idx, desc in result.items()
+                if desc is not None
+            }
+        )
+        time.sleep(10)
+
+    return all_results
