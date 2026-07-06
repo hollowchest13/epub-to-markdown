@@ -1,10 +1,9 @@
 import fitz
 from pathlib import Path
-from src.saver import save_pdf_chapter
-from utils import build_metadata, clean_filename,call_gemini_api
-from saver import save_all_chapters
+from src.saver import save_pdf_chapter,save_all_chapters
+from src.utils import build_metadata, clean_filename,call_gemini_api
 from google.genai import types
-from models import BookFormat
+from src.models import BookFormat
 from google import genai
 import time
 import re
@@ -33,7 +32,7 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     file_type = BookFormat.PDF
-    chunks = split_pdf(pdf_path=pdf_path, chunk_size=80)
+    chunks = split_pdf(pdf_path=pdf_path, chunk_size=20)
     full_text = ""
     max_retries = 5
 
@@ -98,6 +97,7 @@ def collect_chapters_from_text(*, content: str) -> list[tuple[str, str]]:
         i += 2
 
     return valid_chapters
+
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:
     doc = fitz.open(str(pdf_path))
     chunks: list[bytes] = []

@@ -16,8 +16,8 @@ def main():
     books_dir.mkdir(parents=True, exist_ok=True)
     output_dir: Path = base_dir / "output"
     load_dotenv()
-    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
-    MODEL_VERSION="gemini-2.5-flash"
+    client = genai.Client(api_key=os.environ.get("GEMINI_API"))
+    MODEL_VERSION="gemini-3.1-flash-lite"
     for file in books_dir.iterdir():
         file_path = books_dir / file.name
         file_suffix = file.suffix
