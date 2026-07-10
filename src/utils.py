@@ -100,17 +100,16 @@ def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 1
             index_to_name[idx] = name
 
         prompt_text = (
-            "Carefully analyze EACH image separately by its sequence number. "
-            "Do not mix up the images. "
-            "For each, determine its type: table, graph, diagram/scheme, or decorative image. "
-            "If it is a data table, return its content in Markdown table format. "
-            "If it is a graph (bar, line, etc.), provide a description of up to 100 words: type, trend, key values. "
-            "If it is a diagram or scheme (flowchart, architectural, mind map, etc.), "
-            "provide a description of up to 100 words: what the scheme shows, main elements and connections, main conclusion. "
-            "If it is a decorative image, photo, or illustration without data, return null. "
-            "Return all descriptions and tables in the language of the original document, not in the language of this instruction. "
-            'Format the response strictly as valid JSON: {"0": "...", "1": null, ...}. '
-            "No explanations, no markdown formatting (no code blocks like ```json), only the raw JSON string."
+            "Task: Analyze EACH provided image separately by its sequence number. Do not mix up the images. "
+            "Classify and process each image according to these rules:\n"
+            "1. DATA TABLE: Convert its full content strictly into Markdown table format.\n"
+            "2. GRAPH (bar, line, pie, etc.): Provide a concise description (up to 100 words) specifying its type, main trend, and key values.\n"
+            "3. DIAGRAM/SCHEME (flowchart, architecture, mind map): Provide a description (up to 100 words) explaining what it shows, its main elements, connections, and key conclusion.\n"
+            "4. DECORATIVE IMAGE (photo, illustration, spacer without data): Return exactly null.\n\n"
+            "Constraints:\n"
+            "- Language: Return all text, descriptions, and tables in the original document's language.\n"
+            "- Output Format: Return ONLY a single valid raw JSON string where keys are sequence numbers (strings) and values are the results, exactly like this: {\"0\": \"markdown_table_or_description\", \"1\": null}.\n"
+            "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON string."
         )
         parts.append(prompt_text)
         result = {}
@@ -123,6 +122,6 @@ def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 1
                 if desc is not None
             }
         )
-        time.sleep(10)
+        time.sleep(6)
 
     return all_results

@@ -32,22 +32,21 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     file_type = BookFormat.PDF
-    chunks = split_pdf(pdf_path=pdf_path, chunk_size=20)
+    chunks = split_pdf(pdf_path=pdf_path, chunk_size=80)
     full_text = ""
     max_retries = 5
 
     prompt_text = (
-        "Convert this PDF into Markdown COMPLETELY, without omissions or abbreviations. "
-        "This is CRITICALLY IMPORTANT: process every page and every heading, even if the text is long. "
-        "Do not summarize, do not shorten, do not skip sections. "
-        "Use only the provided text. If you are not sure what exactly is written, leave it as the original. "
-        "Preserve the structure of the document: headings, lists, tables. "
-        "If you encounter a table, save it in Markdown table format. "
-        "If you encounter a graph, diagram, scheme, flowchart, or mind map, provide a text description "
-        "of up to 100 words: type, main elements and connections, main trend, or conclusion. "
-        "Return all descriptions and tables in the language of the original document, not in the language of this instruction. "
-        "Correct obvious OCR errors (broken words, extra spaces, incorrectly recognized characters). "
-        "Return only the full Markdown without explanations and without abbreviations."
+       "Task: Convert the provided PDF chunk into Markdown format. "
+        "Strict Rules:\n"
+        "1. COMPLETELY convert the document without omissions, abbreviations, summarizing, or shortening. Process every page, paragraph, and heading.\n"
+        "2. Use ONLY the provided text. If unsure about specific words, leave them as they visually appear.\n"
+        "3. Preserve the document structure: text headings, lists, and tables.\n"
+        "4. TABLES: Convert tables strictly into Markdown table format.\n"
+        "5. VISUALS: If you encounter a graph, diagram, scheme, flowchart, or mind map, provide a text description (up to 100 words) directly in the text flow, specifying its type, main elements, connections, and key conclusion.\n"
+        "6. LANGUAGE: Return all converted text, tables, and visual descriptions in the original document's language, NOT in English.\n"
+        "7. OCR: Correct obvious text layer or OCR errors (broken words, accidental spaces).\n"
+        "8. OUTPUT: Return ONLY the raw Markdown content."
     )
 
     # Process each chunk of the PDF separately and concatenate the resulting Markdown
@@ -65,7 +64,7 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
         )
         full_text += chunk_text or ""
         # Small delay between chunks to avoid hammering the API
-        time.sleep(4)
+        time.sleep(6)
 
     word_count = len(full_text.split())
     valid_chapters = collect_chapters_from_text(content=full_text)
