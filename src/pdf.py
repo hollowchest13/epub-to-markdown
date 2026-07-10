@@ -82,20 +82,21 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
 
 
 def collect_chapters_from_text(*, content: str) -> list[tuple[str, str]]:
-    parts = re.split(r"^(#{1,3} .+)$", content, flags=re.MULTILINE)
-
-    valid_chapters = []
-    if parts[0].strip() and len(parts[0].strip()) > 100:
-        valid_chapters.append(("Introduction", parts[0].strip()))
-    i = 1
-    while i < len(parts) - 1:
-        chapter_name = parts[i].lstrip("# ").strip()
-        text = parts[i + 1].strip()
-        if len(text) > 200:
-            valid_chapters.append((chapter_name, text))
-        i += 2
-
-    return valid_chapters
+    pattern=re.compile(r"^(#{1,3})\s+(.+)$",re.MULTILINE)
+    chapters = []
+    matches=list(pattern.finditer(content))
+    if matches:
+        intro_text=content[:matches[0].start()].strip()
+        if len(intro_text)>100:
+            chapters.append(("Inroduction",intro_text))
+    for i,match in enumerate(matches):
+        start=match.end()
+        end=matches[i+1].start() if i+1<len(matches) else len(content)
+        chapter_name=match.group(2).strip()
+        chapter_text=content[start:end].strip()
+        if len(chapter_text)>200:
+            chapters.append((chapter_name,chapter_text))
+    return chapters
 
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:
     doc = fitz.open(str(pdf_path))
