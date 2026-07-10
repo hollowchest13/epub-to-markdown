@@ -1,7 +1,11 @@
 from pathlib import Path
+from typing import Callable
 import yaml
 import re
-
+from src.models import BookFormat
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def _build_frontmatter(
     content: str,
@@ -57,7 +61,7 @@ def save_epub_chapter(
     chapter_name: str,
     chapter_index: int,
     total_chapters: int,
-    output_folder: str,
+    output_folder: Path,
     book_metadata: dict,
     index: int,
 ) -> None:
@@ -68,13 +72,33 @@ def save_epub_chapter(
     )
     _write_chapter_file(content, frontmatter, file_path)
 
+def save_all_chapters(
+    *,
+    valid_chapters: list[tuple[str, str]],
+    output_folder: Path,
+    metadata: dict,
+    file_type: BookFormat,
+    saver:Callable
+) -> None:
+    total_chapters = len(valid_chapters)
+    for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
+        saver(
+            content=text,
+            chapter_name=chapter_name,
+            chapter_index=index,
+            total_chapters=total_chapters,
+            output_folder=output_folder,
+            book_metadata=metadata,
+            index=index,
+        )
+        logger.info(f"[{index}/{total_chapters}] Збережено: {chapter_name}")
 
 def save_pdf_chapter(
     content: str,
     chapter_name: str,
     chapter_index: int,
     total_chapters: int,
-    output_folder: str,
+    output_folder: Path,
     book_metadata: dict,
     index: int,
 ) -> None:
