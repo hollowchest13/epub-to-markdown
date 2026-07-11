@@ -1,3 +1,4 @@
+from os import O_TEMPORARY
 from pathlib import Path
 from datetime import datetime
 import hashlib
@@ -8,6 +9,7 @@ from google import genai
 from google.genai.errors import ClientError
 from typing import Any
 from google.genai import types
+from src.config import MAX_API_RETRIES,API_DELAY,OUT_OF_LIMIT_DELAY
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -71,12 +73,12 @@ def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, conte
             logger.error(f"Attempt {attempt + 1} unsuccessful: {e}")
             if attempt == max_retries - 1:
                 raise
-            time.sleep(60)
+            time.sleep(OUT_OF_LIMIT_DELAY)
         except json.JSONDecodeError as e:
             logger.error(f"Attempt {attempt + 1}: Invalid JSON received: {e}")
             if attempt == max_retries - 1:
                 raise RuntimeError(f"Could not get a valid JSON response after {max_retries} attempts") from e
-            time.sleep(2)
+            time.sleep(API_DELAY)
         except Exception as e:
             if "503" in str(e):
                 wait_time = 2 ** attempt * 5
@@ -87,11 +89,13 @@ def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, conte
             else:
                 raise
     raise RuntimeError(f"Could not get a response after {max_retries} attempts")
+
 def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[str, str]:
     items = list(img_dict.items())
+    images_num=len(items)
     all_results = {}
 
-    for i in range(0, len(items), batch_size):
+    for i in range(0, images_num, batch_size):
         batch = items[i : i + batch_size]
         parts = []
         index_to_name = {}
@@ -113,8 +117,7 @@ def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 1
         )
         parts.append(prompt_text)
         result = {}
-        max_retries = 5
-        call_gemini_api(client=client,model=model,max_retries=max_retries,contents=parts,expect_json=True)
+        result=call_gemini_api(client=client,model=model,max_retries=MAX_API_RETRIES,contents=parts,expect_json=True)
         all_results.update(
             {
                 index_to_name[int(idx)]: desc
@@ -122,6 +125,7 @@ def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 1
                 if desc is not None
             }
         )
-        time.sleep(6)
+        logger.info(f"Опрацьовано {min(i + batch_size, images_num):03d} з {images_num:03d} зображень")
+        time.sleep(API_DELAY)
 
     return all_results

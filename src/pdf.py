@@ -8,6 +8,7 @@ from google import genai
 import time
 import re
 import logging
+from src.config import MAX_API_RETRIES,API_DELAY,CHAPTER_MIN_SIZE
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,9 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     file_type = BookFormat.PDF
-    chunks = split_pdf(pdf_path=pdf_path, chunk_size=80)
+    metadata = extract_pdf_metadata(pdf_path=pdf_path)
+    chunks = split_pdf(pdf_path=pdf_path, chunk_size=20)
     full_text = ""
-    max_retries = 5
-
     prompt_text = (
        "Task: Convert the provided PDF chunk into Markdown format. "
         "Strict Rules:\n"
@@ -50,7 +50,9 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
     )
 
     # Process each chunk of the PDF separately and concatenate the resulting Markdown
-    for chunk in chunks:
+    for i,chunk in enumerate(chunks):
+        chunk_index = i + 1
+        total_chunks = len(chunks)
         contents = [
             types.Part.from_bytes(data=chunk, mime_type="application/pdf"),
             prompt_text,
@@ -58,18 +60,18 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
         chunk_text = call_gemini_api(
             client=client,
             model=model,
-            max_retries=max_retries,
+            max_retries=MAX_API_RETRIES,
             contents=contents,
             expect_json=False,
         )
         full_text += chunk_text or ""
+        logger.info(f"{metadata['title'][:30]} | Чанк: {chunk_index:03d}/{total_chunks:03d}")
         # Small delay between chunks to avoid hammering the API
-        time.sleep(6)
+        time.sleep(API_DELAY)
 
     word_count = len(full_text.split())
-    valid_chapters = collect_chapters_from_text(content=full_text)
+    valid_chapters = collect_chapters_from_text(content=full_text,chapter_min_size=CHAPTER_MIN_SIZE)
     total_chapters = len(valid_chapters)
-    metadata = extract_pdf_metadata(pdf_path=pdf_path)
     save_all_chapters(
         valid_chapters=valid_chapters,
         output_folder=output_folder,
@@ -81,20 +83,20 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
     logger.info(f"Книга: {metadata['title']} | ~{word_count:,} слів")
 
 
-def collect_chapters_from_text(*, content: str) -> list[tuple[str, str]]:
+def collect_chapters_from_text(*, content: str,chapter_min_size) -> list[tuple[str, str]]:
     pattern=re.compile(r"^(#{1,3})\s+(.+)$",re.MULTILINE)
     chapters = []
     matches=list(pattern.finditer(content))
     if matches:
         intro_text=content[:matches[0].start()].strip()
-        if len(intro_text)>100:
+        if len(intro_text)>chapter_min_size:
             chapters.append(("Inroduction",intro_text))
     for i,match in enumerate(matches):
         start=match.end()
         end=matches[i+1].start() if i+1<len(matches) else len(content)
         chapter_name=match.group(2).strip()
         chapter_text=content[start:end].strip()
-        if len(chapter_text)>200:
+        if len(chapter_text)>chapter_min_size:
             chapters.append((chapter_name,chapter_text))
     return chapters
 

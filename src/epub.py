@@ -7,6 +7,7 @@ from google import genai
 from markdownify import markdownify as md
 from src.models import BookFormat
 from src.saver import save_all_chapters, save_epub_chapter
+from src.config import CHAPTER_MIN_SIZE
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ def extract_epub_metadata(*, book, epub_path):
             "estimated_total_words": total_words,
         },
     )
-def collect_epub_chapters(*, book:epub.EpubBook,client:genai.Client,model:str) -> list[tuple[str, str]]:
+def collect_epub_chapters(*, book:epub.EpubBook,client:genai.Client,model:str,chapter_min_size) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
     ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
     img_dict = get_epub_images(book=book)
@@ -66,7 +67,7 @@ def collect_epub_chapters(*, book:epub.EpubBook,client:genai.Client,model:str) -
         soup = replace_images(soup, image_descriptions)
         text = md(str(soup))
         text = clean_markdown(text)
-        if len(text) > 200:
+        if len(text) > chapter_min_size:
             header = soup.find(["h1", "h2", "h3"])
             chapter_name = (
                 header.get_text().strip()
@@ -107,7 +108,7 @@ def epub_to_markdown_pro(*,client:genai.Client,model:str,epub_path:Path, output_
 
     book = epub.read_epub(epub_path)
     metadata = extract_epub_metadata(book=book, epub_path=epub_path)
-    valid_chapters = collect_epub_chapters(book=book,client=client,model=model)
+    valid_chapters = collect_epub_chapters(book=book,client=client,model=model,chapter_min_size=CHAPTER_MIN_SIZE)
     total_chapters = len(valid_chapters)
     save_all_chapters(
         valid_chapters=valid_chapters,
