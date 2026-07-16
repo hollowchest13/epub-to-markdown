@@ -1,4 +1,3 @@
-from os import O_TEMPORARY
 from pathlib import Path
 from datetime import datetime
 import hashlib

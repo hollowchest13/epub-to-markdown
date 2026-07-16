@@ -8,7 +8,7 @@ from google import genai
 import time
 import re
 import logging
-from src.config import MAX_API_RETRIES,API_DELAY,CHAPTER_MIN_SIZE
+from src.config import MAX_API_RETRIES,API_DELAY,CHAPTER_MIN_SIZE,PAGE_CHUNK_SIZE
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
 
     file_type = BookFormat.PDF
     metadata = extract_pdf_metadata(pdf_path=pdf_path)
-    chunks = split_pdf(pdf_path=pdf_path, chunk_size=20)
+    chunks = split_pdf(pdf_path=pdf_path, chunk_size=PAGE_CHUNK_SIZE)
     full_text = ""
     prompt_text = (
        "Task: Convert the provided PDF chunk into Markdown format. "
@@ -98,6 +98,8 @@ def collect_chapters_from_text(*, content: str,chapter_min_size) -> list[tuple[s
         chapter_text=content[start:end].strip()
         if len(chapter_text)>chapter_min_size:
             chapters.append((chapter_name,chapter_text))
+    if not chapters and len(content) > chapter_min_size:
+        return [("Full Content", content)]
     return chapters
 
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:

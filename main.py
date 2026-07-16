@@ -6,6 +6,7 @@ from src.pdf import pdf_to_markdown_pro
 from dotenv import load_dotenv
 import os
 import logging
+from src.config import MODEL_VERSION
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def main():
     output_dir: Path = base_dir / "output"
     load_dotenv()
     client = genai.Client(api_key=os.environ.get("GEMINI_API"))
-    MODEL_VERSION="gemini-3.1-flash-lite"
+    
     for file in books_dir.iterdir():
         file_path = books_dir / file.name
         file_suffix = file.suffix

@@ -15,14 +15,23 @@ logger = logging.getLogger(__name__)
 def extract_epub_metadata(*, book, epub_path):
     def first(key):
         values = book.get_metadata("DC", key)
-        return values[0][0] if values else None
-
+        # Перевіряємо: чи є список, чи є в ньому перший елемент, чи є в елементі значення
+        if values and isinstance(values[0], (list, tuple)) and len(values[0]) > 0:
+            return values[0][0]
+        # Якщо це просто рядок (інколи metadata повертає (value,))
+        if values and isinstance(values[0], str):
+            return values[0]
+        return None
+        
     def all_values(key):
-        return (
-            [v[0] for v in book.get_metadata("DC", key)]
-            if book.get_metadata("DC", key)
-            else []
-        )
+        metadata = book.get_metadata("DC", key)
+        results = []
+        for v in metadata:
+            if isinstance(v, (list, tuple)) and len(v) > 0:
+                results.append(v[0])
+            elif isinstance(v, str):
+                results.append(v)
+        return results
 
     # Підрахунок сторінок (кількість spine-документів як приблизна оцінка)
     spine_ids = [item_id for item_id, _ in book.spine]
@@ -50,31 +59,49 @@ def extract_epub_metadata(*, book, epub_path):
             "estimated_total_words": total_words,
         },
     )
-def collect_epub_chapters(*, book:epub.EpubBook,client:genai.Client,model:str,chapter_min_size) -> list[tuple[str, str]]:
-    spine_ids = [item_id for item_id, _ in book.spine]
-    ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
-    img_dict = get_epub_images(book=book)
-    image_descriptions = images_to_md(client=client,model=model,img_dict=img_dict) if img_dict else {}
 
-    # Перший прохід — збираємо валідні розділи, щоб знати total_chapters
+def collect_epub_chapters(*, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int) -> list[tuple[str, str]]:
+    spine_ids = [item_id for item_id, _ in book.spine]
+    # Використовуємо spine_ids, щоб отримати елементи
+    ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
+    
+    img_dict = get_epub_images(book=book)
+    image_descriptions = images_to_md(client=client, model=model, img_dict=img_dict) if img_dict else {}
+
     valid_chapters = []
+    
+    # Головний цикл
     for item in ordered_items:
         if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
             continue
-        soup = BeautifulSoup(item.get_content(), "html.parser")
-        for tag in soup.find_all(["script", "style", "nav"]):
-            tag.decompose()
-        soup = replace_images(soup, image_descriptions)
-        text = md(str(soup))
-        text = clean_markdown(text)
-        if len(text) > chapter_min_size:
-            header = soup.find(["h1", "h2", "h3"])
-            chapter_name = (
-                header.get_text().strip()
-                if header
-                else f"Chapter {len(valid_chapters) + 1}"
-            )
-            valid_chapters.append((chapter_name, text))
+        try:
+            soup = BeautifulSoup(item.get_content(), "html.parser")
+            for tag in soup.find_all(["script", "style", "nav"]):
+                tag.decompose()
+            soup = replace_images(soup, image_descriptions)
+            text = md(str(soup))
+            text = clean_markdown(text)
+            
+            if len(text) > chapter_min_size:
+                header = soup.find(["h1", "h2", "h3"])
+                chapter_name = header.get_text().strip() if header else f"Chapter {len(valid_chapters) + 1}"
+                valid_chapters.append((chapter_name, text))
+        except Exception as e:
+            logger.error(f"Помилка обробки item: {e}")
+
+    # Блок "запобіжник": якщо нічого не знайдено
+    if not valid_chapters:
+        all_text = []
+        for item in ordered_items:
+            if item and item.get_type() == ebooklib.ITEM_DOCUMENT:
+                # Очищуємо текст так само, як і в основному циклі
+                soup = BeautifulSoup(item.get_content(), "html.parser")
+                text = md(str(soup))
+                text = clean_markdown(text)
+                all_text.append(text)
+        
+        return [("Full content", "\n\n".join(all_text))]
+
     return valid_chapters
 
 def get_epub_images(*, book) -> dict[str, bytes]:
