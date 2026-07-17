@@ -8,11 +8,13 @@ from google import genai
 from google.genai.errors import ClientError
 from typing import Any
 from google.genai import types
-from src.config import MAX_API_RETRIES,API_DELAY,OUT_OF_LIMIT_DELAY
+from src.config import MAX_API_RETRIES, API_DELAY, OUT_OF_LIMIT_DELAY
 
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def clean_filename(*, file_path: Path):
     # Прибираємо розширення (.pdf, .epub)
@@ -59,7 +61,15 @@ def clean_markdown(text):
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
-def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, contents: list[Any], expect_json: bool = False) -> Any:
+
+def call_gemini_api(
+    *,
+    client: genai.Client,
+    model: str,
+    max_retries: int,
+    contents: list[Any],
+    expect_json: bool = False,
+) -> Any:
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(model=model, contents=contents)
@@ -76,11 +86,13 @@ def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, conte
         except json.JSONDecodeError as e:
             logger.error(f"Attempt {attempt + 1}: Invalid JSON received: {e}")
             if attempt == max_retries - 1:
-                raise RuntimeError(f"Could not get a valid JSON response after {max_retries} attempts") from e
+                raise RuntimeError(
+                    f"Could not get a valid JSON response after {max_retries} attempts"
+                ) from e
             time.sleep(API_DELAY)
         except Exception as e:
             if "503" in str(e):
-                wait_time = 2 ** attempt * 5
+                wait_time = 2**attempt * 5
                 logger.error(f"Server overloaded, waiting {wait_time} seconds...")
                 if attempt == max_retries - 1:
                     raise
@@ -89,9 +101,12 @@ def call_gemini_api(*, client: genai.Client, model: str, max_retries: int, conte
                 raise
     raise RuntimeError(f"Could not get a response after {max_retries} attempts")
 
-def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 15) -> dict[str, str]:
+
+def images_to_md(
+    *, client, model, img_dict: dict[str, bytes], batch_size: int
+) -> dict[str, str]:
     items = list(img_dict.items())
-    images_num=len(items)
+    images_num = len(items)
     all_results = {}
 
     for i in range(0, images_num, batch_size):
@@ -111,12 +126,18 @@ def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 1
             "4. DECORATIVE IMAGE (photo, illustration, spacer without data): Return exactly null.\n\n"
             "Constraints:\n"
             "- Language: Return all text, descriptions, and tables in the original document's language.\n"
-            "- Output Format: Return ONLY a single valid raw JSON string where keys are sequence numbers (strings) and values are the results, exactly like this: {\"0\": \"markdown_table_or_description\", \"1\": null}.\n"
+            '- Output Format: Return ONLY a single valid raw JSON string where keys are sequence numbers (strings) and values are the results, exactly like this: {"0": "markdown_table_or_description", "1": null}.\n'
             "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON string."
         )
         parts.append(prompt_text)
         result = {}
-        result=call_gemini_api(client=client,model=model,max_retries=MAX_API_RETRIES,contents=parts,expect_json=True)
+        result = call_gemini_api(
+            client=client,
+            model=model,
+            max_retries=MAX_API_RETRIES,
+            contents=parts,
+            expect_json=True,
+        )
         all_results.update(
             {
                 index_to_name[int(idx)]: desc
@@ -124,7 +145,9 @@ def images_to_md(*,client,model, img_dict: dict[str, bytes], batch_size: int = 1
                 if desc is not None
             }
         )
-        logger.info(f"Опрацьовано {min(i + batch_size, images_num):03d} з {images_num:03d} зображень")
+        logger.info(
+            f"Опрацьовано {min(i + batch_size, images_num):03d} з {images_num:03d} зображень"
+        )
         time.sleep(API_DELAY)
 
     return all_results

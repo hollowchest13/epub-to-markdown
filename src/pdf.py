@@ -1,16 +1,18 @@
 import fitz
 from pathlib import Path
-from src.saver import save_pdf_chapter,save_all_chapters
-from src.utils import build_metadata, clean_filename,call_gemini_api
+from src.saver import save_pdf_chapter, save_all_chapters
+from src.utils import build_metadata, clean_filename, call_gemini_api
 from google.genai import types
 from src.models import BookFormat
 from google import genai
 import time
 import re
 import logging
-from src.config import MAX_API_RETRIES,API_DELAY,CHAPTER_MIN_SIZE,PAGE_CHUNK_SIZE
+from src.config import MAX_API_RETRIES, API_DELAY, CHAPTER_MIN_SIZE, PAGE_CHUNK_SIZE
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def extract_pdf_metadata(pdf_path: Path) -> dict:
     doc = fitz.open(str(pdf_path))
@@ -28,16 +30,25 @@ def extract_pdf_metadata(pdf_path: Path) -> dict:
             "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
         },
     )
-def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, model: str):
+
+
+def pdf_to_markdown_pro(
+    pdf_path: Path, output_folder, client: genai.Client, model: str
+):
     if not Path(output_folder).exists():
         Path(output_folder).mkdir(parents=True, exist_ok=True)
 
     file_type = BookFormat.PDF
-    metadata = extract_pdf_metadata(pdf_path=pdf_path)
+
+    try:
+        metadata = extract_pdf_metadata(pdf_path=pdf_path)
+    except Exception as e:
+        logger.error(f"Помилка в extract_pdf_metadata: {e}")
+        raise
     chunks = split_pdf(pdf_path=pdf_path, chunk_size=PAGE_CHUNK_SIZE)
     full_text = ""
     prompt_text = (
-       "Task: Convert the provided PDF chunk into Markdown format. "
+        "Task: Convert the provided PDF chunk into Markdown format. "
         "Strict Rules:\n"
         "1. COMPLETELY convert the document without omissions, abbreviations, summarizing, or shortening. Process every page, paragraph, and heading.\n"
         "2. Use ONLY the provided text. If unsure about specific words, leave them as they visually appear.\n"
@@ -50,7 +61,7 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
     )
 
     # Process each chunk of the PDF separately and concatenate the resulting Markdown
-    for i,chunk in enumerate(chunks):
+    for i, chunk in enumerate(chunks):
         chunk_index = i + 1
         total_chunks = len(chunks)
         contents = [
@@ -65,42 +76,49 @@ def pdf_to_markdown_pro(pdf_path: Path, output_folder, client: genai.Client, mod
             expect_json=False,
         )
         full_text += chunk_text or ""
-        logger.info(f"{metadata['title'][:30]} | Чанк: {chunk_index:03d}/{total_chunks:03d}")
+        logger.info(
+            f"{metadata['title'][:30]} | Чанк: {chunk_index:03d}/{total_chunks:03d}"
+        )
         # Small delay between chunks to avoid hammering the API
         time.sleep(API_DELAY)
 
     word_count = len(full_text.split())
-    valid_chapters = collect_chapters_from_text(content=full_text,chapter_min_size=CHAPTER_MIN_SIZE)
+    valid_chapters = collect_chapters_from_text(
+        content=full_text, chapter_min_size=CHAPTER_MIN_SIZE
+    )
     total_chapters = len(valid_chapters)
     save_all_chapters(
         valid_chapters=valid_chapters,
         output_folder=output_folder,
         metadata=metadata,
         file_type=file_type,
-        saver=save_pdf_chapter
+        saver=save_pdf_chapter,
     )
     logger.info(f"\nГотово! {total_chapters} розділів → {output_folder}/")
     logger.info(f"Книга: {metadata['title']} | ~{word_count:,} слів")
 
 
-def collect_chapters_from_text(*, content: str,chapter_min_size) -> list[tuple[str, str]]:
-    pattern=re.compile(r"^(#{1,3})\s+(.+)$",re.MULTILINE)
+def collect_chapters_from_text(
+    *, content: str, chapter_min_size
+) -> list[tuple[str, str]]:
+    pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
     chapters = []
-    matches=list(pattern.finditer(content))
+    matches = list(pattern.finditer(content))
     if matches:
-        intro_text=content[:matches[0].start()].strip()
-        if len(intro_text)>chapter_min_size:
-            chapters.append(("Inroduction",intro_text))
-    for i,match in enumerate(matches):
-        start=match.end()
-        end=matches[i+1].start() if i+1<len(matches) else len(content)
-        chapter_name=match.group(2).strip()
-        chapter_text=content[start:end].strip()
-        if len(chapter_text)>chapter_min_size:
-            chapters.append((chapter_name,chapter_text))
+        intro_text = content[: matches[0].start()].strip()
+        if len(intro_text) > chapter_min_size:
+            chapters.append(("Inroduction", intro_text))
+    for i, match in enumerate(matches):
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
+        chapter_name = match.group(2).strip()
+        chapter_text = content[start:end].strip()
+        if len(chapter_text) > chapter_min_size:
+            chapters.append((chapter_name, chapter_text))
     if not chapters and len(content) > chapter_min_size:
         return [("Full Content", content)]
     return chapters
+
 
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:
     doc = fitz.open(str(pdf_path))

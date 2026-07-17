@@ -1,16 +1,18 @@
 from bs4 import BeautifulSoup
 import ebooklib
 from pathlib import Path
-from src.utils import clean_filename, build_metadata, images_to_md,clean_markdown
+from src.utils import clean_filename, build_metadata, images_to_md, clean_markdown
 from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
 from src.models import BookFormat
 from src.saver import save_all_chapters, save_epub_chapter
-from src.config import CHAPTER_MIN_SIZE
+from src.config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def extract_epub_metadata(*, book, epub_path):
     def first(key):
@@ -18,11 +20,12 @@ def extract_epub_metadata(*, book, epub_path):
         # Перевіряємо: чи є список, чи є в ньому перший елемент, чи є в елементі значення
         if values and isinstance(values[0], (list, tuple)) and len(values[0]) > 0:
             return values[0][0]
+
         # Якщо це просто рядок (інколи metadata повертає (value,))
         if values and isinstance(values[0], str):
             return values[0]
         return None
-        
+
     def all_values(key):
         metadata = book.get_metadata("DC", key)
         results = []
@@ -60,16 +63,24 @@ def extract_epub_metadata(*, book, epub_path):
         },
     )
 
-def collect_epub_chapters(*, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int) -> list[tuple[str, str]]:
+
+def collect_epub_chapters(
+    *, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int
+) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
     # Використовуємо spine_ids, щоб отримати елементи
     ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
-    
     img_dict = get_epub_images(book=book)
-    image_descriptions = images_to_md(client=client, model=model, img_dict=img_dict) if img_dict else {}
+    image_descriptions = (
+        images_to_md(
+            client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE
+        )
+        if img_dict
+        else {}
+    )
 
     valid_chapters = []
-    
+
     # Головний цикл
     for item in ordered_items:
         if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
@@ -81,10 +92,14 @@ def collect_epub_chapters(*, book: epub.EpubBook, client: genai.Client, model: s
             soup = replace_images(soup, image_descriptions)
             text = md(str(soup))
             text = clean_markdown(text)
-            
+
             if len(text) > chapter_min_size:
                 header = soup.find(["h1", "h2", "h3"])
-                chapter_name = header.get_text().strip() if header else f"Chapter {len(valid_chapters) + 1}"
+                chapter_name = (
+                    header.get_text().strip()
+                    if header
+                    else f"Chapter {len(valid_chapters) + 1}"
+                )
                 valid_chapters.append((chapter_name, text))
         except Exception as e:
             logger.error(f"Помилка обробки item: {e}")
@@ -99,10 +114,11 @@ def collect_epub_chapters(*, book: epub.EpubBook, client: genai.Client, model: s
                 text = md(str(soup))
                 text = clean_markdown(text)
                 all_text.append(text)
-        
+
         return [("Full content", "\n\n".join(all_text))]
 
     return valid_chapters
+
 
 def get_epub_images(*, book) -> dict[str, bytes]:
     images: dict = {}
@@ -128,21 +144,38 @@ def replace_images(soup, image_descriptions: dict[str, str]):
             img_tag.replace_with(new_tag)
     return soup
 
-def epub_to_markdown_pro(*,client:genai.Client,model:str,epub_path:Path, output_folder:Path):
+
+def epub_to_markdown_pro(
+    *, client: genai.Client, model: str, epub_path: Path, output_folder: Path
+):
     if not Path.exists(output_folder):
         Path.mkdir(output_folder, parents=True, exist_ok=True)
     file_type = BookFormat.EPUB
-
-    book = epub.read_epub(epub_path)
-    metadata = extract_epub_metadata(book=book, epub_path=epub_path)
-    valid_chapters = collect_epub_chapters(book=book,client=client,model=model,chapter_min_size=CHAPTER_MIN_SIZE)
+    try:
+        book = epub.read_epub(epub_path)
+    except Exception as e:
+        logger.error(f"Помилка в читання: {e}")
+        raise
+    try:
+        metadata = extract_epub_metadata(book=book, epub_path=epub_path)
+    except Exception as e:
+        logger.error(f"Помилка в extract_epub_metadata: {e}")
+        raise
+    try:
+        valid_chapters = collect_epub_chapters(
+            book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE
+        )
+    except Exception as e:
+        logger.error(f"Помилка в collect_epub_chapters: {e}")
+        raise
     total_chapters = len(valid_chapters)
+
     save_all_chapters(
         valid_chapters=valid_chapters,
         output_folder=output_folder,
         metadata=metadata,
         file_type=file_type,
-        saver=save_epub_chapter
+        saver=save_epub_chapter,
     )
 
     logger.info(f"\nГотово! {total_chapters} розділів → {output_folder}/")
