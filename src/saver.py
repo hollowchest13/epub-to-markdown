@@ -4,7 +4,6 @@ import yaml
 import re
 from src.models import BookFormat
 import logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def _build_frontmatter(

@@ -7,11 +7,12 @@ import os
 import logging
 from src.config import MODEL_VERSION
 
-logging.basicConfig(level=logging.INFO)
+
 logger = logging.getLogger(__name__)
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     base_dir = Path(__file__).parent
     books_dir: Path = base_dir / "books"
     books_dir.mkdir(parents=True, exist_ok=True)

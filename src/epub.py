@@ -10,7 +10,6 @@ from src.saver import save_all_chapters, save_epub_chapter
 from src.config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -63,6 +62,26 @@ def extract_epub_metadata(*, book, epub_path):
         },
     )
 
+def _extract_chapter_text(
+    item, image_descriptions: dict, strip_nav: bool = True
+) -> tuple[str, BeautifulSoup]:
+    """Спільна логіка очищення контенту item-а: декодування, видалення
+    сміттєвих тегів, заміна зображень, конвертація в markdown."""
+    content = item.get_content()
+    if isinstance(content, bytes):
+        content = content.decode("utf-8", errors="replace")
+
+    soup = BeautifulSoup(content, "html.parser")
+
+    if strip_nav:
+        for tag in soup.find_all(["script", "style", "nav"]):
+            tag.decompose()
+
+    soup = replace_images(soup, image_descriptions)
+    text = md(str(soup))
+    text = clean_markdown(text)
+    return text, soup
+
 
 def collect_epub_chapters(
     *, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int
@@ -71,13 +90,18 @@ def collect_epub_chapters(
     # Використовуємо spine_ids, щоб отримати елементи
     ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
     img_dict = get_epub_images(book=book)
-    image_descriptions = (
-        images_to_md(
-            client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE
+
+    try:
+        image_descriptions = (
+            images_to_md(
+                client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE
+            )
+            if img_dict
+            else {}
         )
-        if img_dict
-        else {}
-    )
+    except Exception:
+        logger.exception("Не вдалося згенерувати описи зображень, продовжуємо без них")
+        image_descriptions = {}
 
     valid_chapters = []
 
@@ -86,34 +110,32 @@ def collect_epub_chapters(
         if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
             continue
         try:
-            soup = BeautifulSoup(item.get_content(), "html.parser")
-            for tag in soup.find_all(["script", "style", "nav"]):
-                tag.decompose()
-            soup = replace_images(soup, image_descriptions)
-            text = md(str(soup))
-            text = clean_markdown(text)
+            text, soup = _extract_chapter_text(item, image_descriptions, strip_nav=True)
 
             if len(text) > chapter_min_size:
                 header = soup.find(["h1", "h2", "h3"])
+                header_text = header.get_text().strip() if header else ""
                 chapter_name = (
-                    header.get_text().strip()
-                    if header
+                    header_text
+                    if header_text
                     else f"Chapter {len(valid_chapters) + 1}"
                 )
                 valid_chapters.append((chapter_name, text))
-        except Exception as e:
-            logger.error(f"Помилка обробки item: {e}")
+        except Exception:
+            logger.exception("Помилка обробки item під час основного циклу")
 
     # Блок "запобіжник": якщо нічого не знайдено
     if not valid_chapters:
         all_text = []
         for item in ordered_items:
-            if item and item.get_type() == ebooklib.ITEM_DOCUMENT:
-                # Очищуємо текст так само, як і в основному циклі
-                soup = BeautifulSoup(item.get_content(), "html.parser")
-                text = md(str(soup))
-                text = clean_markdown(text)
-                all_text.append(text)
+            if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
+                continue
+            try:
+                text, _ = _extract_chapter_text(item, image_descriptions, strip_nav=True)
+                if text.strip():
+                    all_text.append(text)
+            except Exception:
+                logger.exception("Помилка обробки item під час fallback-циклу")
 
         return [("Full content", "\n\n".join(all_text))]
 

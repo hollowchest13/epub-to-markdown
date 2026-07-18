@@ -10,7 +10,6 @@ import re
 import logging
 from src.config import MAX_API_RETRIES, API_DELAY, CHAPTER_MIN_SIZE, PAGE_CHUNK_SIZE
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +29,6 @@ def extract_pdf_metadata(pdf_path: Path) -> dict:
             "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
         },
     )
-
 
 def pdf_to_markdown_pro(
     pdf_path: Path, output_folder, client: genai.Client, model: str
@@ -75,13 +73,13 @@ def pdf_to_markdown_pro(
             contents=contents,
             expect_json=False,
         )
-        full_text += chunk_text or ""
+        full_text += (chunk_text or "").strip() + "\n\n"
+        logger.info(f"в чанку {len(chunk_text.split())} слів")
         logger.info(
             f"{metadata['title'][:30]} | Чанк: {chunk_index:03d}/{total_chunks:03d}"
         )
         # Small delay between chunks to avoid hammering the API
         time.sleep(API_DELAY)
-
     word_count = len(full_text.split())
     valid_chapters = collect_chapters_from_text(
         content=full_text, chapter_min_size=CHAPTER_MIN_SIZE
@@ -118,7 +116,6 @@ def collect_chapters_from_text(
     if not chapters and len(content) > chapter_min_size:
         return [("Full Content", content)]
     return chapters
-
 
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:
     doc = fitz.open(str(pdf_path))

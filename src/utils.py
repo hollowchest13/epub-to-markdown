@@ -12,7 +12,6 @@ from src.config import MAX_API_RETRIES, API_DELAY, OUT_OF_LIMIT_DELAY
 
 import logging
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -77,6 +76,7 @@ def call_gemini_api(
             if not expect_json:
                 return text
             clean_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+            logger.info(f"Відповідь {len(clean_text)} символів")
             return json.loads(clean_text)
         except ClientError as e:
             logger.error(f"Attempt {attempt + 1} unsuccessful: {e}")
@@ -112,25 +112,29 @@ def images_to_md(
     for i in range(0, images_num, batch_size):
         batch = items[i : i + batch_size]
         parts = []
-        index_to_name = {}
-        for idx, (name, img_data) in enumerate(batch):
+        for name, img_data in batch:
             parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpeg"))
-            index_to_name[idx] = name
 
         prompt_text = (
-            "Task: Analyze EACH provided image separately by its sequence number. Do not mix up the images. "
+            "Task: Analyze EACH provided image separately, in the exact order they are given. "
+            "Do not skip, merge, or reorder images. "
             "Classify and process each image according to these rules:\n"
             "1. DATA TABLE: Convert its full content strictly into Markdown table format.\n"
             "2. GRAPH (bar, line, pie, etc.): Provide a concise description (up to 100 words) specifying its type, main trend, and key values.\n"
             "3. DIAGRAM/SCHEME (flowchart, architecture, mind map): Provide a description (up to 100 words) explaining what it shows, its main elements, connections, and key conclusion.\n"
             "4. DECORATIVE IMAGE (photo, illustration, spacer without data): Return exactly null.\n\n"
+            f"IMPORTANT: There are exactly {len(batch)} images in this request. "
+            f"Return a JSON array with EXACTLY {len(batch)} elements, one per image, "
+            "in the same order as the images were provided. Never omit an element — "
+            "use null for decorative images instead of skipping them.\n\n"
             "Constraints:\n"
             "- Language: Return all text, descriptions, and tables in the original document's language.\n"
-            '- Output Format: Return ONLY a single valid raw JSON string where keys are sequence numbers (strings) and values are the results, exactly like this: {"0": "markdown_table_or_description", "1": null}.\n'
-            "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON string."
+            '- Output Format: Return ONLY a single valid raw JSON array, exactly like this: '
+            '["markdown_table_or_description", null, "another description"].\n'
+            "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON array."
         )
         parts.append(prompt_text)
-        result = {}
+
         result = call_gemini_api(
             client=client,
             model=model,
@@ -138,13 +142,28 @@ def images_to_md(
             contents=parts,
             expect_json=True,
         )
-        all_results.update(
-            {
-                index_to_name[int(idx)]: desc
-                for idx, desc in result.items()
-                if desc is not None
-            }
-        )
+
+        if not isinstance(result, list):
+            logger.error(
+                f"Некоректна відповідь моделі для батча {i}: "
+                f"очікувався list, отримано {type(result)}. Батч пропущено."
+            )
+            time.sleep(API_DELAY)
+            continue
+
+        if len(result) != len(batch):
+            logger.error(
+                f"Кількість елементів у відповіді ({len(result)}) не збігається "
+                f"з кількістю зображень у батчі ({len(batch)}), батч {i}. "
+                "Зіставлення ненадійне, батч пропущено повністю."
+            )
+            time.sleep(API_DELAY)
+            continue
+
+        for (name, _), desc in zip(batch, result):
+            if desc is not None:
+                all_results[name] = desc
+
         logger.info(
             f"Опрацьовано {min(i + batch_size, images_num):03d} з {images_num:03d} зображень"
         )
