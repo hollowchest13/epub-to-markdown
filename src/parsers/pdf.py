@@ -3,35 +3,36 @@ from pathlib import Path
 from storage.saver import save_pdf_chapter, save_all_chapters
 from utils import build_metadata, clean_filename, call_gemini_api
 from google.genai import types
-from src.models import BookFormat
 from google import genai
+from models import BookFormat
 import time
 import re
 import logging
-from config import MAX_API_RETRIES, API_DELAY, CHAPTER_MIN_SIZE, PAGE_CHUNK_SIZE
+from config import MAX_API_RETRIES, API_DELAY, CHAPTER_MIN_SIZE, PAGE_CHUNK_SIZE,MIN_CHUNK_LENGTH
 
 logger = logging.getLogger(__name__)
 
 
 def extract_pdf_metadata(pdf_path: Path) -> dict:
-    doc = fitz.open(str(pdf_path))
-    meta: dict = doc.metadata or {}
+    with fitz.open(str(pdf_path)) as doc:
+        meta: dict = doc.metadata or {}
 
-    return build_metadata(
-        source_file=pdf_path,
-        extra={
-            "title": meta.get("title") or clean_filename(file_path=pdf_path),
-            "author": [meta.get("author")],
-            "publisher": meta.get("producer"),
-            "published_date": meta.get("creationDate"),
-            "language": meta.get("language"),
-            "description": meta.get("subject"),
-            "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
-        },
-    )
+        return build_metadata(
+            source_file=pdf_path,
+            extra={
+                "title": meta.get("title") or clean_filename(file_path=pdf_path),
+                "author": [meta.get("author")],
+                "publisher": meta.get("producer"),
+                "published_date": meta.get("creationDate"),
+                "language": meta.get("language"),
+                "description": meta.get("subject"),
+                "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
+                "file_type": BookFormat.PDF.value,
+            },
+        )
+
 def _get_chunk_text(*, client, model, max_retries, contents) -> str:
     chunk_text = ""
-    MIN_CHUNK_LENGTH=50
     for attempt in range(1, max_retries + 1):
         chunk_text = call_gemini_api(
             client=client,
@@ -57,19 +58,10 @@ def _get_chunk_text(*, client, model, max_retries, contents) -> str:
     return chunk_text
     
 
-def pdf_to_markdown_pro(
+def pdf_to_markdown_pro(*,
     pdf_path: Path, output_folder, client: genai.Client, model: str
 ):
-    if not Path(output_folder).exists():
-        Path(output_folder).mkdir(parents=True, exist_ok=True)
-
-    file_type = BookFormat.PDF
-
-    try:
-        metadata = extract_pdf_metadata(pdf_path=pdf_path)
-    except Exception as e:
-        logger.error(f"Помилка в extract_pdf_metadata: {e}")
-        raise
+    metadata = extract_pdf_metadata(pdf_path=pdf_path)
     chunks = split_pdf(pdf_path=pdf_path, chunk_size=PAGE_CHUNK_SIZE)
     full_text = ""
     prompt_text = (
@@ -95,9 +87,9 @@ def pdf_to_markdown_pro(
         ]
         chunk_text = _get_chunk_text(client=client,model=model,max_retries=MAX_API_RETRIES,contents=contents)
         full_text += (chunk_text or "").strip() + "\n\n"
-        logger.info(f"в чанку {len(chunk_text.split())} слів")
+        logger.info(f"in chunk {len(chunk_text.split())} words")
         logger.info(
-            f"{metadata['title'][:30]} | Чанк: {chunk_index:03d}/{total_chunks:03d}"
+            f"{metadata['title'][:30]} | Chunk: {chunk_index:03d}/{total_chunks:03d}"
         )
         # Small delay between chunks to avoid hammering the API
         time.sleep(API_DELAY)
@@ -110,11 +102,10 @@ def pdf_to_markdown_pro(
         valid_chapters=valid_chapters,
         output_folder=output_folder,
         metadata=metadata,
-        file_type=file_type,
         saver=save_pdf_chapter,
     )
-    logger.info(f"\nГотово! {total_chapters} розділів → {output_folder}/")
-    logger.info(f"Книга: {metadata['title']} | ~{word_count:,} слів")
+    logger.info(f"\nCompleted! {total_chapters} chapters → {output_folder}/")
+    logger.info(f"Book: {metadata['title']} | ~{word_count:,} words")
 
 
 def collect_chapters_from_text(
@@ -126,7 +117,7 @@ def collect_chapters_from_text(
     if matches:
         intro_text = content[: matches[0].start()].strip()
         if len(intro_text) > chapter_min_size:
-            chapters.append(("Inroduction", intro_text))
+            chapters.append(("Introduction", intro_text))
     for i, match in enumerate(matches):
         start = match.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
@@ -139,12 +130,12 @@ def collect_chapters_from_text(
     return chapters
 
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:
-    doc = fitz.open(str(pdf_path))
-    chunks: list[bytes] = []
-    for i in range(0, len(doc), chunk_size):
-        writer = fitz.open()
-        writer.insert_pdf(
-            doc, from_page=i, to_page=min(i + chunk_size - 1, len(doc) - 1)
-        )
-        chunks.append(writer.tobytes())
-    return chunks
+    with fitz.open(str(pdf_path)) as doc:
+        chunks: list[bytes] = []
+        for i in range(0, len(doc), chunk_size):
+            with fitz.open() as writer:
+                writer.insert_pdf(
+                    doc, from_page=i, to_page=min(i + chunk_size - 1, len(doc) - 1)
+                )
+                chunks.append(writer.tobytes())
+        return chunks

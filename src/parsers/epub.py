@@ -5,10 +5,10 @@ from utils import clean_filename, build_metadata, images_to_md, clean_markdown
 from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
-from models import BookFormat
 from storage.saver import save_all_chapters, save_epub_chapter
 from typing import Any
 from config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
+from models import BookFormat
 import logging
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,7 @@ def extract_epub_metadata(*, book:epub.EpubBook, epub_path:Path):
             "subjects": all_values("subject"),
             "total_spine_items": total_spine_items,
             "estimated_total_words": total_words,
+            "file_type": BookFormat.EPUB.value,
         },
     )
 
@@ -103,7 +104,7 @@ def collect_epub_chapters(
             else {}
         )
     except Exception as e:
-        logger.exception("Failed to generate image descriptions; continuing without them %s",e,exc_info=True)
+        logger.error("Failed to generate image descriptions; continuing without them %s",e,exc_info=True)
         image_descriptions = {}
 
     valid_chapters = []
@@ -125,7 +126,7 @@ def collect_epub_chapters(
                 )
                 valid_chapters.append((chapter_name, text))
         except Exception as e:
-            logger.exception("Error processing item during main loop %s",e,exc_info=True)
+            logger.error("Error processing item during main loop %s",e,exc_info=True)
 
     # Fallback
     if not valid_chapters:
@@ -173,37 +174,20 @@ def replace_images(soup, image_descriptions: dict[str, str]):
 def epub_to_markdown_pro(
     *, client: genai.Client, model: str, epub_path: Path, output_folder: Path
 ):
-    if not Path.exists(output_folder):
-        Path.mkdir(output_folder, parents=True, exist_ok=True)
-    file_type = BookFormat.EPUB
-    try:
-        book = epub.read_epub(epub_path)
-    except Exception as e:
-        logger.error("Reading error: %s",e,exc_info=True)
-        raise
-    try:
-        metadata = extract_epub_metadata(book=book, epub_path=epub_path)
-    except Exception as e:
-        logger.error("Error in extract_epub_metadata: %s",e,exc_info=True)
-        raise
-    try:
-        valid_chapters = collect_epub_chapters(
-            book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE
-        )
-    except Exception as e:
-        logger.error(f"Error in collect_epub_chapters: %s",e,exc_info=True)
-        raise
+    book = epub.read_epub(epub_path)
+    metadata = extract_epub_metadata(book=book, epub_path=epub_path)
+    valid_chapters = collect_epub_chapters(
+        book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE
+    )
     total_chapters = len(valid_chapters)
-
     save_all_chapters(
         valid_chapters=valid_chapters,
         output_folder=output_folder,
         metadata=metadata,
-        file_type=file_type,
         saver=save_epub_chapter,
     )
 
     logger.info("Completed! %s chapters → %s/",total_chapters,output_folder)
     logger.info(
-        "Книга: %s | ~%s words",metadata['title'],metadata['estimated_total_words']
+        "Book: %s | ~%s words",metadata['title'],metadata['estimated_total_words']
     )
