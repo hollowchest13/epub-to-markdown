@@ -1,11 +1,11 @@
 from pathlib import Path
 from google import genai
-from src.epub import epub_to_markdown_pro
-from src.pdf import pdf_to_markdown_pro
+from parsers.epub import epub_to_markdown_pro
+from parsers.pdf import pdf_to_markdown_pro
 from dotenv import load_dotenv
 import os
 import logging
-from src.config import MODEL_VERSION
+from config import MODEL_VERSION
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def main():
                         model=MODEL_VERSION,
                     )
         except Exception as e:
-            logger.error(f"Помилка при обробці {file.name}: {e}")
+            logger.error("Processing error %s: %s", file.name,e,exc_info=True)
             continue
 
 

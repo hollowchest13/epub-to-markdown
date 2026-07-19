@@ -8,7 +8,7 @@ from google import genai
 from google.genai.errors import ClientError
 from typing import Any
 from google.genai import types
-from src.config import MAX_API_RETRIES, API_DELAY, OUT_OF_LIMIT_DELAY
+from config import MAX_API_RETRIES, API_DELAY, OUT_OF_LIMIT_DELAY
 
 import logging
 
@@ -26,18 +26,18 @@ def build_metadata(*, source_file: Path, extra: dict) -> dict:
     file_size_bytes = source_file.stat().st_size
 
     base = {
-        # --- Технічні дані файлу ---
+        #  File technical data
         "source_file": source_file.name,
         "file_type": source_file.suffix.lstrip(".").lower(),
         "file_size_bytes": file_size_bytes,
         "file_hash_sha256": get_file_hash(source_file),
         "file_size_kb": round(file_size_bytes / 1024, 2),
-        # --- Конвертація ---
+        # Convertation
         "converted_date": datetime.now().strftime("%Y-%m-%d"),
         "converted_at": datetime.now().isoformat(),
     }
 
-    return base | extra  # merge двох словників
+    return base | extra  # merge two dictionaries
 
 
 def get_file_hash(file_path, algorithm="sha256"):
@@ -101,6 +101,48 @@ def call_gemini_api(
                 raise
     raise RuntimeError(f"Could not get a response after {max_retries} attempts")
 
+def _fetch_img_batch_with_retry(
+    *, client, model, parts: list, batch_size: int, batch_index: int, max_retries: int
+) -> list | None:
+
+    """Sends a request to Gemini with retries until the response passes validation
+    (a list of the correct length). Returns None if all attempts fail."""
+    
+    for attempt in range(1, max_retries + 1):
+        response = call_gemini_api(
+            client=client,
+            model=model,
+            max_retries=max_retries,
+            contents=parts,
+            expect_json=True,
+        )
+
+        if not isinstance(response, list):
+            logger.warning(
+                "Attempt %s/%s: expected list, got %s. Batch %s.",
+                attempt,
+                max_retries,
+                type(response),
+                batch_index,
+            )
+            time.sleep(API_DELAY)
+            continue
+
+        if len(response) != batch_size:
+            logger.warning(
+                "Attempt %s/%s: the number of elements in the response (%s) does not match the number of images in the batch (%s), batch %s.",
+                attempt,
+                max_retries,
+                len(response),
+                batch_size,
+                batch_index,
+            )
+            time.sleep(API_DELAY)
+            continue
+
+        return response
+
+    return None
 
 def images_to_md(
     *, client, model, img_dict: dict[str, bytes], batch_size: int
@@ -135,29 +177,19 @@ def images_to_md(
         )
         parts.append(prompt_text)
 
-        result = call_gemini_api(
+        result = _fetch_img_batch_with_retry(
             client=client,
             model=model,
+            parts=parts,
+            batch_size=len(batch),
+            batch_index=i,
             max_retries=MAX_API_RETRIES,
-            contents=parts,
-            expect_json=True,
         )
 
-        if not isinstance(result, list):
+        if result is None:
             logger.error(
-                f"Некоректна відповідь моделі для батча {i}: "
-                f"очікувався list, отримано {type(result)}. Батч пропущено."
+                "Batch %s: failed to receive a valid response after %s attempt(s). Batch skipped.",i,MAX_API_RETRIES
             )
-            time.sleep(API_DELAY)
-            continue
-
-        if len(result) != len(batch):
-            logger.error(
-                f"Кількість елементів у відповіді ({len(result)}) не збігається "
-                f"з кількістю зображень у батчі ({len(batch)}), батч {i}. "
-                "Зіставлення ненадійне, батч пропущено повністю."
-            )
-            time.sleep(API_DELAY)
             continue
 
         for (name, _), desc in zip(batch, result):
@@ -165,7 +197,7 @@ def images_to_md(
                 all_results[name] = desc
 
         logger.info(
-            f"Опрацьовано {min(i + batch_size, images_num):03d} з {images_num:03d} зображень"
+            "Processed %s з %s зображень",min(i + batch_size, images_num),images_num
         )
         time.sleep(API_DELAY)
 

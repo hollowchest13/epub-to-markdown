@@ -1,5 +1,5 @@
 import logging
-from src.utils import clean_markdown
+from utils import clean_markdown
 import re
 from pathlib import Path
 

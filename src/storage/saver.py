@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Callable
 import yaml
 import re
-from src.models import BookFormat
+from models import BookFormat
 import logging
 logger = logging.getLogger(__name__)
 

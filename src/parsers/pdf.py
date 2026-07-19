@@ -1,14 +1,14 @@
 import fitz
 from pathlib import Path
-from src.saver import save_pdf_chapter, save_all_chapters
-from src.utils import build_metadata, clean_filename, call_gemini_api
+from storage.saver import save_pdf_chapter, save_all_chapters
+from utils import build_metadata, clean_filename, call_gemini_api
 from google.genai import types
 from src.models import BookFormat
 from google import genai
 import time
 import re
 import logging
-from src.config import MAX_API_RETRIES, API_DELAY, CHAPTER_MIN_SIZE, PAGE_CHUNK_SIZE
+from config import MAX_API_RETRIES, API_DELAY, CHAPTER_MIN_SIZE, PAGE_CHUNK_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,33 @@ def extract_pdf_metadata(pdf_path: Path) -> dict:
             "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
         },
     )
+def _get_chunk_text(*, client, model, max_retries, contents) -> str:
+    chunk_text = ""
+    MIN_CHUNK_LENGTH=50
+    for attempt in range(1, max_retries + 1):
+        chunk_text = call_gemini_api(
+            client=client,
+            model=model,
+            max_retries=max_retries,
+            contents=contents,
+            expect_json=False,
+        )
+        if len(chunk_text) < MIN_CHUNK_LENGTH:
+            logger.warning(
+                "Attempt %s/%s: result too short (%s characters).",
+                attempt,
+                max_retries,
+                len(chunk_text),
+            )
+            time.sleep(API_DELAY)
+            continue
+        return chunk_text
+
+    logger.error(
+        "Failed to obtain a complete result after %s attempt(s).", max_retries
+    )
+    return chunk_text
+    
 
 def pdf_to_markdown_pro(
     pdf_path: Path, output_folder, client: genai.Client, model: str
@@ -66,13 +93,7 @@ def pdf_to_markdown_pro(
             types.Part.from_bytes(data=chunk, mime_type="application/pdf"),
             prompt_text,
         ]
-        chunk_text = call_gemini_api(
-            client=client,
-            model=model,
-            max_retries=MAX_API_RETRIES,
-            contents=contents,
-            expect_json=False,
-        )
+        chunk_text = _get_chunk_text(client=client,model=model,max_retries=MAX_API_RETRIES,contents=contents)
         full_text += (chunk_text or "").strip() + "\n\n"
         logger.info(f"в чанку {len(chunk_text.split())} слів")
         logger.info(
