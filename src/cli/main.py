@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    base_dir = Path(__file__).parent
+    base_dir = Path(__file__).resolve().parent.parent.parent
     books_dir: Path = base_dir / "books"
     books_dir.mkdir(parents=True, exist_ok=True)
     load_dotenv()

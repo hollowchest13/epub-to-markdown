@@ -65,16 +65,15 @@ def pdf_to_markdown_pro(*,
     chunks = split_pdf(pdf_path=pdf_path, chunk_size=PAGE_CHUNK_SIZE)
     full_text = ""
     prompt_text = (
-        "Task: Convert the provided PDF chunk into Markdown format. "
-        "Strict Rules:\n"
-        "1. COMPLETELY convert the document without omissions, abbreviations, summarizing, or shortening. Process every page, paragraph, and heading.\n"
-        "2. Use ONLY the provided text. If unsure about specific words, leave them as they visually appear.\n"
-        "3. Preserve the document structure: text headings, lists, and tables.\n"
-        "4. TABLES: Convert tables strictly into Markdown table format.\n"
-        "5. VISUALS: If you encounter a graph, diagram, scheme, flowchart, or mind map, provide a text description (up to 100 words) directly in the text flow, specifying its type, main elements, connections, and key conclusion.\n"
-        "6. LANGUAGE: Return all converted text, tables, and visual descriptions in the original document's language, NOT in English.\n"
-        "7. OCR: Correct obvious text layer or OCR errors (broken words, accidental spaces).\n"
-        "8. OUTPUT: Return ONLY the raw Markdown content."
+        """Task: Extract the structural and textual content from the provided material and represent it in Markdown format for personal analysis and indexing.
+            Guidelines:
+            Process the provided text fragment in detail, maintaining the original structure, headings, and hierarchy.
+            Use ONLY the provided source material. Ensure high fidelity to the original text; if a word is unclear, maintain its visual representation.
+            TABLES: Format all data tables into standard Markdown tables.
+            VISUALS: Provide a concise analytical description of any graphs, diagrams, or schemes, focusing on their main elements and logical connections (up to 100 words per item).
+            LANGUAGE: Keep the output strictly in the original document's language.
+            DATA CLEANING: Fix minor OCR artifacts (e.g., broken words, unnecessary line breaks) to improve readability.
+            OUTPUT: Return the output as raw Markdown content. Focus on accuracy and technical formatting."""
     )
 
     # Process each chunk of the PDF separately and concatenate the resulting Markdown
