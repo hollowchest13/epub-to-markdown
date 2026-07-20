@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Callable
 import yaml
 import re
-from src.models import BookFormat
+from models import BookFormat
 import logging
 logger = logging.getLogger(__name__)
 
@@ -76,10 +76,10 @@ def save_all_chapters(
     valid_chapters: list[tuple[str, str]],
     output_folder: Path,
     metadata: dict,
-    file_type: BookFormat,
     saver:Callable
 ) -> None:
     total_chapters = len(valid_chapters)
+    output_folder.mkdir(parents=True,exist_ok=True)
     for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
         saver(
             content=text,
@@ -90,7 +90,7 @@ def save_all_chapters(
             book_metadata=metadata,
             index=index,
         )
-        logger.info(f"[{index}/{total_chapters}] Збережено: {chapter_name}")
+        logger.info(f"[{index}/{total_chapters}] Saved: {chapter_name}")
 
 def save_pdf_chapter(
     content: str,
