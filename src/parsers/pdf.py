@@ -1,13 +1,18 @@
 import fitz
 import pymupdf4llm
 from pathlib import Path
-from storage.saver import save_pdf_chapter, save_all_chapters
-from utils import build_metadata, clean_filename, call_gemini_api
+from storage.saver import save_all_chapters
+from utils import (
+    build_metadata,
+    clean_filename,
+    call_gemini_api,
+    collect_chapters_from_text,
+)
 from google.genai import types
 from google import genai
 from models import BookFormat
+from cli.cleaner import clean_text
 import time
-import re
 import logging
 from config import (
     MAX_API_RETRIES,
@@ -86,7 +91,7 @@ def _local_conversion(*, pdf_bytes: bytes) -> str:
 def pdf_to_markdown_pro(
     *,
     pdf_path: Path,
-    output_folder,
+    output_dir,
     client: genai.Client,
     model: str,
     only_local: bool = False,
@@ -123,41 +128,19 @@ def pdf_to_markdown_pro(
         )
         # Small delay between chunks to avoid hammering the API
         time.sleep(API_DELAY)
+    full_text = clean_text(full_text)
     word_count = len(full_text.split())
     valid_chapters = collect_chapters_from_text(
-        content=full_text, chapter_min_size=CHAPTER_MIN_SIZE
+        text=full_text, chapter_min_size=CHAPTER_MIN_SIZE
     )
     total_chapters = len(valid_chapters)
     save_all_chapters(
         valid_chapters=valid_chapters,
-        output_folder=output_folder,
+        output_dir=output_dir,
         metadata=metadata,
-        saver=save_pdf_chapter,
     )
-    logger.info(f"\nCompleted! {total_chapters} chapters → {output_folder}/")
+    logger.info(f"\nCompleted! {total_chapters} chapters → {output_dir}/")
     logger.info(f"Book: {metadata['title']} | ~{word_count:,} words")
-
-
-def collect_chapters_from_text(
-    *, content: str, chapter_min_size
-) -> list[tuple[str, str]]:
-    pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
-    chapters = []
-    matches = list(pattern.finditer(content))
-    if matches:
-        intro_text = content[: matches[0].start()].strip()
-        if len(intro_text) > chapter_min_size:
-            chapters.append(("Introduction", intro_text))
-    for i, match in enumerate(matches):
-        start = match.end()
-        end = matches[i + 1].start() if i + 1 < len(matches) else len(content)
-        chapter_name = match.group(2).strip()
-        chapter_text = content[start:end].strip()
-        if len(chapter_text) > chapter_min_size:
-            chapters.append((chapter_name, chapter_text))
-    if not chapters and len(content) > chapter_min_size:
-        return [("Full Content", content)]
-    return chapters
 
 
 def split_pdf(*, pdf_path: Path, chunk_size: int) -> list[bytes]:

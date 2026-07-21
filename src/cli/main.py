@@ -5,8 +5,10 @@ from parsers.pdf import pdf_to_markdown_pro
 from dotenv import load_dotenv
 import os
 import logging
-from cli.cleaner import cleaner
+from utils import collect_chapters_from_text
+from storage.saver import save_all_chapters
 from config import MODEL_VERSION
+from cli.cleaner import clean_text
 
 
 logger = logging.getLogger(__name__)
@@ -27,28 +29,36 @@ def main():
                 case ".epub":
                     epub_to_markdown_pro(
                         epub_path=file,
-                        output_folder=output_dir,
+                        output_dir=output_dir,
                         client=client,
                         model=MODEL_VERSION,
                     )
                 case ".pdf":
                     pdf_to_markdown_pro(
                         pdf_path=file,
-                        output_folder=output_dir,
+                        output_dir=output_dir,
                         client=client,
                         model=MODEL_VERSION,
                         only_local=True,
                     )
+                case ".md":
+                    text = file.read_text(encoding="utf-8")
+                    text = clean_text(text=text)
+                    valid_chapters = collect_chapters_from_text(
+                        text=text, chapter_min_size=50
+                    )
+                    metadata = {}
+                    save_all_chapters(
+                        valid_chapters=valid_chapters,
+                        output_dir=output_dir,
+                        metadata=metadata,
+                    )
+
                 case _:
                     logger.warning("Skipping unsupported file: %s", file.name)
         except Exception:
             logger.exception("Processing error %s:", file.name)
             continue
-    try:
-        clean_dir: Path = base_dir / "output"
-        cleaner(clean_dir=clean_dir)
-    except Exception:
-        logger.exception("Clean exception")
 
 
 if __name__ == "__main__":

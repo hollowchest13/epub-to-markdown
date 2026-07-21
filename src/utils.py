@@ -192,3 +192,23 @@ def images_to_md(
         time.sleep(API_DELAY)
 
     return all_results
+
+
+def collect_chapters_from_text(*, text: str, chapter_min_size) -> list[tuple[str, str]]:
+    pattern = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
+    chapters = []
+    matches = list(pattern.finditer(text))
+    if matches:
+        intro_text = text[: matches[0].start()].strip()
+        if len(intro_text) > chapter_min_size:
+            chapters.append(("Introduction", intro_text))
+    for i, match in enumerate(matches):
+        start = match.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
+        chapter_name = match.group(2).strip()
+        chapter_text = text[start:end].strip()
+        if len(chapter_text) > chapter_min_size:
+            chapters.append((chapter_name, chapter_text))
+    if not chapters and len(text) > chapter_min_size:
+        return [("Full Content", text)]
+    return chapters

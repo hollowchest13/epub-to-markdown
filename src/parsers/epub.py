@@ -1,11 +1,12 @@
 from bs4 import BeautifulSoup
+from cli.cleaner import clean_text
 import ebooklib
 from pathlib import Path
 from utils import clean_filename, build_metadata, images_to_md
 from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
-from storage.saver import save_all_chapters, save_epub_chapter
+from storage.saver import save_all_chapters
 from typing import Any
 from config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
 from models import BookFormat
@@ -83,6 +84,7 @@ def _extract_chapter_text(
 
     soup = replace_images(soup, image_descriptions)
     text = md(str(soup))
+    text = clean_text(text)
     return text, soup
 
 
@@ -177,7 +179,7 @@ def replace_images(soup, image_descriptions: dict[str, str]):
 
 
 def epub_to_markdown_pro(
-    *, client: genai.Client, model: str, epub_path: Path, output_folder: Path
+    *, client: genai.Client, model: str, epub_path: Path, output_dir: Path
 ):
     book = epub.read_epub(epub_path)
     metadata = extract_epub_metadata(book=book, epub_path=epub_path)
@@ -186,13 +188,10 @@ def epub_to_markdown_pro(
     )
     total_chapters = len(valid_chapters)
     save_all_chapters(
-        valid_chapters=valid_chapters,
-        output_folder=output_folder,
-        metadata=metadata,
-        saver=save_epub_chapter,
+        valid_chapters=valid_chapters, output_dir=output_dir, metadata=metadata
     )
 
-    logger.info("Completed! %s chapters → %s/", total_chapters, output_folder)
+    logger.info("Completed! %s chapters → %s/", total_chapters, output_dir)
     logger.info(
         "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words"]
     )
