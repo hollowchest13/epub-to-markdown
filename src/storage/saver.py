@@ -1,10 +1,10 @@
 from pathlib import Path
-from typing import Callable
 import yaml
 import re
-from models import BookFormat
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 def _build_frontmatter(
     content: str,
@@ -55,59 +55,39 @@ def _write_chapter_file(
         f.write(content)
 
 
-def save_epub_chapter(
+def save_chapter(
     content: str,
     chapter_name: str,
     chapter_index: int,
     total_chapters: int,
-    output_folder: Path,
+    output_dir: Path,
     book_metadata: dict,
     index: int,
 ) -> None:
     safe_name = re.sub(r"[^\w\-]", "_", chapter_name).lower()[:50]
-    file_path = Path(output_folder) / f"{index:03d}_{safe_name}.md"
+    file_path = Path(output_dir) / f"{index:03d}_{safe_name}.md"
     frontmatter = _build_frontmatter(
         content, chapter_name, chapter_index, total_chapters, book_metadata
     )
     _write_chapter_file(content, frontmatter, file_path)
 
+
 def save_all_chapters(
     *,
     valid_chapters: list[tuple[str, str]],
-    output_folder: Path,
+    output_dir: Path,
     metadata: dict,
-    saver:Callable
 ) -> None:
     total_chapters = len(valid_chapters)
-    output_folder.mkdir(parents=True,exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
-        saver(
+        save_chapter(
             content=text,
             chapter_name=chapter_name,
             chapter_index=index,
             total_chapters=total_chapters,
-            output_folder=output_folder,
+            output_dir=output_dir,
             book_metadata=metadata,
             index=index,
         )
         logger.info(f"[{index}/{total_chapters}] Saved: {chapter_name}")
-
-def save_pdf_chapter(
-    content: str,
-    chapter_name: str,
-    chapter_index: int,
-    total_chapters: int,
-    output_folder: Path,
-    book_metadata: dict,
-    index: int,
-) -> None:
-    safe_name = re.sub(r"[^\w\-]", "_", chapter_name).lower()[:50]
-    file_path = Path(output_folder) / f"{index:03d}_{safe_name}.md"
-    frontmatter = _build_frontmatter(
-        content,
-        chapter_name,
-        chapter_index,
-        total_chapters,
-        book_metadata,
-    )
-    _write_chapter_file(content, frontmatter, file_path)
