@@ -5,6 +5,7 @@ from parsers.pdf import pdf_to_markdown_pro
 from dotenv import load_dotenv
 import os
 import logging
+from cli.cleaner import cleaner
 from config import MODEL_VERSION
 
 
@@ -18,30 +19,36 @@ def main():
     books_dir.mkdir(parents=True, exist_ok=True)
     load_dotenv()
     client = genai.Client(api_key=os.environ.get("GEMINI_API"))
-
     for file in books_dir.iterdir():
-        file_path = books_dir / file.name
         file_suffix = file.suffix
-        output_dir: Path = base_dir / "output"/file.name
+        output_dir: Path = base_dir / "output" / file.stem
         try:
             match file_suffix:
                 case ".epub":
                     epub_to_markdown_pro(
-                        epub_path=file_path,
+                        epub_path=file,
                         output_folder=output_dir,
                         client=client,
                         model=MODEL_VERSION,
                     )
                 case ".pdf":
                     pdf_to_markdown_pro(
-                        pdf_path=file_path,
+                        pdf_path=file,
                         output_folder=output_dir,
                         client=client,
                         model=MODEL_VERSION,
+                        only_local=True,
                     )
-        except Exception as e:
-            logger.error("Processing error %s: %s", file.name,e,exc_info=True)
+                case _:
+                    logger.warning("Skipping unsupported file: %s", file.name)
+        except Exception:
+            logger.exception("Processing error %s:", file.name)
             continue
+    try:
+        clean_dir: Path = base_dir / "output"
+        cleaner(clean_dir=clean_dir)
+    except Exception:
+        logger.exception("Clean exception")
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import ebooklib
 from pathlib import Path
-from utils import clean_filename, build_metadata, images_to_md, clean_markdown
+from utils import clean_filename, build_metadata, images_to_md
 from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
@@ -14,9 +14,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def extract_epub_metadata(*, book:epub.EpubBook, epub_path:Path):
-    def first(key:str):
-        values:Any = book.get_metadata("DC", key)
+def extract_epub_metadata(*, book: epub.EpubBook, epub_path: Path):
+    def first(key: str):
+        values: Any = book.get_metadata("DC", key)
         # Checking: does the list exist, does it have a first element, and does the element have a value?
         if values and isinstance(values[0], (list, tuple)) and len(values[0]) > 0:
             return values[0][0]
@@ -40,7 +40,7 @@ def extract_epub_metadata(*, book:epub.EpubBook, epub_path:Path):
     spine_ids = [item_id for item_id, _ in book.spine]
     total_spine_items = len(spine_ids)
 
-   # Word count for the entire text
+    # Word count for the entire text
     total_words = 0
     for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
         soup = BeautifulSoup(item.get_content(), "html.parser")
@@ -64,12 +64,12 @@ def extract_epub_metadata(*, book:epub.EpubBook, epub_path:Path):
         },
     )
 
+
 def _extract_chapter_text(
     item, image_descriptions: dict, strip_nav: bool = True
 ) -> tuple[str, BeautifulSoup]:
-
     """Shared logic for cleaning item content:
-     decoding, removing junk tags, replacing images, and converting to Markdown."""
+    decoding, removing junk tags, replacing images, and converting to Markdown."""
 
     content = item.get_content()
     if isinstance(content, bytes):
@@ -83,7 +83,6 @@ def _extract_chapter_text(
 
     soup = replace_images(soup, image_descriptions)
     text = md(str(soup))
-    text = clean_markdown(text)
     return text, soup
 
 
@@ -104,7 +103,11 @@ def collect_epub_chapters(
             else {}
         )
     except Exception as e:
-        logger.error("Failed to generate image descriptions; continuing without them %s",e,exc_info=True)
+        logger.error(
+            "Failed to generate image descriptions; continuing without them %s",
+            e,
+            exc_info=True,
+        )
         image_descriptions = {}
 
     valid_chapters = []
@@ -120,13 +123,11 @@ def collect_epub_chapters(
                 header = soup.find(["h1", "h2", "h3"])
                 header_text = header.get_text().strip() if header else ""
                 chapter_name = (
-                    header_text
-                    if header_text
-                    else f"Chapter {len(valid_chapters) + 1}"
+                    header_text if header_text else f"Chapter {len(valid_chapters) + 1}"
                 )
                 valid_chapters.append((chapter_name, text))
         except Exception as e:
-            logger.error("Error processing item during main loop %s",e,exc_info=True)
+            logger.error("Error processing item during main loop %s", e, exc_info=True)
 
     # Fallback
     if not valid_chapters:
@@ -135,11 +136,15 @@ def collect_epub_chapters(
             if item is None or item.get_type() != ebooklib.ITEM_DOCUMENT:
                 continue
             try:
-                text, _ = _extract_chapter_text(item, image_descriptions, strip_nav=True)
+                text, _ = _extract_chapter_text(
+                    item, image_descriptions, strip_nav=True
+                )
                 if text.strip():
                     all_text.append(text)
             except Exception as e:
-                logger.error("Error processing item during fallback loop %s",e,exc_info=True)
+                logger.error(
+                    "Error processing item during fallback loop %s", e, exc_info=True
+                )
 
         return [("Full content", "\n\n".join(all_text))]
 
@@ -187,7 +192,7 @@ def epub_to_markdown_pro(
         saver=save_epub_chapter,
     )
 
-    logger.info("Completed! %s chapters → %s/",total_chapters,output_folder)
+    logger.info("Completed! %s chapters → %s/", total_chapters, output_folder)
     logger.info(
-        "Book: %s | ~%s words",metadata['title'],metadata['estimated_total_words']
+        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words"]
     )

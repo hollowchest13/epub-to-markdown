@@ -2,9 +2,10 @@ from pathlib import Path
 from typing import Callable
 import yaml
 import re
-from models import BookFormat
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 def _build_frontmatter(
     content: str,
@@ -71,15 +72,16 @@ def save_epub_chapter(
     )
     _write_chapter_file(content, frontmatter, file_path)
 
+
 def save_all_chapters(
     *,
     valid_chapters: list[tuple[str, str]],
     output_folder: Path,
     metadata: dict,
-    saver:Callable
+    saver: Callable,
 ) -> None:
     total_chapters = len(valid_chapters)
-    output_folder.mkdir(parents=True,exist_ok=True)
+    output_folder.mkdir(parents=True, exist_ok=True)
     for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
         saver(
             content=text,
@@ -91,6 +93,7 @@ def save_all_chapters(
             index=index,
         )
         logger.info(f"[{index}/{total_chapters}] Saved: {chapter_name}")
+
 
 def save_pdf_chapter(
     content: str,

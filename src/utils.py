@@ -48,19 +48,6 @@ def get_file_hash(file_path, algorithm="sha256"):
     return h.hexdigest()
 
 
-def clean_markdown(text):
-    text = re.sub(r"<\?xml[^?]*\?>", "", text)
-    text = re.sub(r"xml version=['\"].*?['\"]", "", text)
-    text = re.sub(r"encoding=['\"]utf-8['\"][?]?", "", text)
-    text = re.sub(r"\([cp]\d+\.xhtml(?:#.*?)?\)", "", text)
-    text = re.sub(r"\(.*?\.html#filepos\d+\)", "", text)
-    text = re.sub(r"!\[.*?\]\(images/.*?\)", "", text)
-    text = re.sub(r"\[\d+\]", "", text)
-    text = re.sub(r"\(\#[a-z0-9]+-tbl-\d+\)", "", text)
-    text = re.sub(r"\n{3,}", "\n\n", text)
-    return text.strip()
-
-
 def call_gemini_api(
     *,
     client: genai.Client,
@@ -101,13 +88,13 @@ def call_gemini_api(
                 raise
     raise RuntimeError(f"Could not get a response after {max_retries} attempts")
 
+
 def _fetch_img_batch_with_retry(
     *, client, model, parts: list, batch_size: int, batch_index: int, max_retries: int
 ) -> list | None:
-
     """Sends a request to Gemini with retries until the response passes validation
     (a list of the correct length). Returns None if all attempts fail."""
-    
+
     for attempt in range(1, max_retries + 1):
         response = call_gemini_api(
             client=client,
@@ -144,6 +131,7 @@ def _fetch_img_batch_with_retry(
 
     return None
 
+
 def images_to_md(
     *, client, model, img_dict: dict[str, bytes], batch_size: int
 ) -> dict[str, str]:
@@ -171,7 +159,7 @@ def images_to_md(
             "use null for decorative images instead of skipping them.\n\n"
             "Constraints:\n"
             "- Language: Return all text, descriptions, and tables in the original document's language.\n"
-            '- Output Format: Return ONLY a single valid raw JSON array, exactly like this: '
+            "- Output Format: Return ONLY a single valid raw JSON array, exactly like this: "
             '["markdown_table_or_description", null, "another description"].\n'
             "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON array."
         )
@@ -188,7 +176,9 @@ def images_to_md(
 
         if result is None:
             logger.error(
-                "Batch %s: failed to receive a valid response after %s attempt(s). Batch skipped.",i,MAX_API_RETRIES
+                "Batch %s: failed to receive a valid response after %s attempt(s). Batch skipped.",
+                i,
+                MAX_API_RETRIES,
             )
             continue
 
@@ -197,7 +187,7 @@ def images_to_md(
                 all_results[name] = desc
 
         logger.info(
-            "Processed %s з %s зображень",min(i + batch_size, images_num),images_num
+            "Processed %s з %s зображень", min(i + batch_size, images_num), images_num
         )
         time.sleep(API_DELAY)
 
