@@ -20,6 +20,7 @@ _PATTERNS = [
     (re.compile(r"\(\#[a-z0-9]+-tbl-\d+\)"), ""),
     (re.compile(r"<[^>]+>"), ""),  # HTML теги типу <span id="...">
     (re.compile(r"\n{3,}"), "\n\n"),
+    (re.compile(r"\([^)]*\.html#[^)]+\)"), ""),
 ]
 
 
