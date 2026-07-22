@@ -39,7 +39,6 @@ def main():
                         output_dir=output_dir,
                         client=client,
                         model=MODEL_VERSION,
-                        only_local=True,
                     )
                 case ".md":
                     text = file.read_text(encoding="utf-8")
