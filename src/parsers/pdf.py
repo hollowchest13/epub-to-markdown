@@ -102,14 +102,17 @@ def pdf_to_markdown_pro(
             DATA CLEANING: Fix minor OCR artifacts (e.g., broken words, unnecessary line breaks) to improve readability.
             OUTPUT: Return the output as raw Markdown content. Focus on accuracy and technical formatting."""
 
-    # Process each chunk of the PDF separately and concatenate the resulting Markdown
     with fitz.open(str(pdf_path)) as doc:
         metadata = extract_pdf_metadata(doc, pdf_path=pdf_path)
         plan = build_processing_plan(doc)
+        for i, (method, pages) in enumerate(plan, 1):
+            logger.info(
+                "Plan %03d/%03d | method: %s | pages: %s", i, len(plan), method, pages
+            )
         batches = _plan_to_bytes(doc, plan=plan)
 
     full_text = ""
-    for i, (method, batch_bytes) in enumerate(batches, 1):
+    for i, ((method, page_nums), (_, batch_bytes)) in enumerate(zip(plan, batches), 1):
         chunk_text = _get_chunk_text(
             client=client,
             model=model,
@@ -119,16 +122,17 @@ def pdf_to_markdown_pro(
             method=method,
         )
         full_text += (chunk_text or "").strip() + "\n\n"
-        logger.info(f"in chunk {len(chunk_text.split())} words")
         logger.info(
-            "%s | Batch: %03d/%03d | method: %s",
+            "%s | Batch: %03d/%03d | method: %s | pages: %d | words: %d",
             metadata["title"][:30],
             i,
             len(batches),
             method,
+            len(page_nums),
+            len(chunk_text.split()),
         )
-        # Small delay between chunks to avoid hammering the API
         time.sleep(API_DELAY)
+
     full_text = clean_text(full_text)
     word_count = len(full_text.split())
     valid_chapters = collect_chapters_from_text(
@@ -161,7 +165,7 @@ def assess_page(
 
 
 def build_processing_plan(
-    doc, *, max_gemini_pages: int = 20
+    doc, *, max_pages_per_batch: int = 20
 ) -> list[tuple[str, list[int]]]:
     groups = []
     current_method = None
@@ -172,8 +176,9 @@ def build_processing_plan(
 
         if method == current_method:
             current_pages.append(page.number)
-            if method == "gemini" and len(current_pages) >= max_gemini_pages:
+            if len(current_pages) >= max_pages_per_batch:
                 groups.append((current_method, current_pages))
+                current_method = None
                 current_pages = []
         else:
             if current_pages:
