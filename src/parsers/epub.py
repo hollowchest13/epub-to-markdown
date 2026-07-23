@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def extract_epub_metadata(*, book: epub.EpubBook, epub_path: Path):
+def extract_epub_metadata(book: epub.EpubBook, *, epub_path: Path):
     def first(key: str):
         values: Any = book.get_metadata("DC", key)
         # Checking: does the list exist, does it have a first element, and does the element have a value?

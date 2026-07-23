@@ -25,23 +25,22 @@ from config import (
 logger = logging.getLogger(__name__)
 
 
-def extract_pdf_metadata(pdf_path: Path) -> dict:
-    with fitz.open(str(pdf_path)) as doc:
-        meta: dict = doc.metadata or {}
+def extract_pdf_metadata(doc: fitz.Document, pdf_path: Path) -> dict:
+    meta: dict = doc.metadata or {}
 
-        return build_metadata(
-            source_file=pdf_path,
-            extra={
-                "title": meta.get("title") or clean_filename(file_path=pdf_path),
-                "author": [meta.get("author")],
-                "publisher": meta.get("producer"),
-                "published_date": meta.get("creationDate"),
-                "language": meta.get("language"),
-                "description": meta.get("subject"),
-                "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
-                "file_type": BookFormat.PDF.value,
-            },
-        )
+    return build_metadata(
+        source_file=pdf_path,
+        extra={
+            "title": meta.get("title") or clean_filename(file_path=pdf_path),
+            "author": [meta.get("author")],
+            "publisher": meta.get("producer"),
+            "published_date": meta.get("creationDate"),
+            "language": meta.get("language"),
+            "description": meta.get("subject"),
+            "subjects": [meta.get("keywords")] if meta.get("keywords") else [],
+            "file_type": BookFormat.PDF.value,
+        },
+    )
 
 
 def _get_chunk_text(
@@ -81,7 +80,8 @@ def _local_conversion(*, pdf_bytes: bytes) -> str:
     text = ""
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         text = pymupdf4llm.to_markdown(doc)
-    assert isinstance(text, str), f"Expected str, got {type(text)}"
+    if not isinstance(text, str):
+        raise TypeError(f"Expected str, got {type(text)}")
     return text
 
 
@@ -92,8 +92,6 @@ def pdf_to_markdown_pro(
     client: genai.Client,
     model: str,
 ):
-    metadata = extract_pdf_metadata(pdf_path=pdf_path)
-    full_text = ""
     prompt_text = """Task: Extract the structural and textual content from the provided material and represent it in Markdown format for personal analysis and indexing.
             Guidelines:
             Process the provided text fragment in detail, maintaining the original structure, headings, and hierarchy.
@@ -105,8 +103,10 @@ def pdf_to_markdown_pro(
             OUTPUT: Return the output as raw Markdown content. Focus on accuracy and technical formatting."""
 
     # Process each chunk of the PDF separately and concatenate the resulting Markdown
-    plan = build_processing_plan(pdf_path=pdf_path)
-    batches = _plan_to_bytes(pdf_path=pdf_path, plan=plan)
+    with fitz.open(str(pdf_path)) as doc:
+        metadata = extract_pdf_metadata(doc, pdf_path=pdf_path)
+        plan = build_processing_plan(doc)
+        batches = _plan_to_bytes(doc, plan=plan)
 
     full_text = ""
     for i, (method, batch_bytes) in enumerate(batches, 1):
@@ -156,56 +156,56 @@ def assess_page(
 ) -> bool:
     is_scanned = len(page.get_text().strip()) < min_text_length
     has_math = len(MATH_PATTERN.findall(page.get_text())) > math_symbol_threshold
-    has_images = _has_significant_images(page=page, size_ratio=image_size_ratio)
+    has_images = _has_significant_images(page, size_ratio=image_size_ratio)
     return is_scanned or has_math or has_images
 
 
 def build_processing_plan(
-    pdf_path: Path, max_gemini_pages: int = 10
+    doc, *, max_gemini_pages: int = 20
 ) -> list[tuple[str, list[int]]]:
-    with fitz.open(str(pdf_path)) as doc:
-        groups = []
-        current_method = None
-        current_pages = []
+    groups = []
+    current_method = None
+    current_pages = []
 
-        for page in doc:
-            method = "gemini" if assess_page(page) else "local"
+    for page in doc:
+        method = "gemini" if assess_page(page) else "local"
 
-            if method == current_method:
-                current_pages.append(page.number)
-                if method == "gemini" and len(current_pages) >= max_gemini_pages:
-                    groups.append((current_method, current_pages))
-                    current_pages = []
-            else:
-                if current_pages:
-                    groups.append((current_method, current_pages))
-                current_method = method
-                current_pages = [page.number]
+        if method == current_method:
+            current_pages.append(page.number)
+            if method == "gemini" and len(current_pages) >= max_gemini_pages:
+                groups.append((current_method, current_pages))
+                current_pages = []
+        else:
+            if current_pages:
+                groups.append((current_method, current_pages))
+            current_method = method
+            current_pages = [page.number]
 
-        if current_pages:
-            groups.append((current_method, current_pages))
+    if current_pages:
+        groups.append((current_method, current_pages))
 
     return groups
 
 
 def _plan_to_bytes(
-    pdf_path: Path, plan: list[tuple[str, list[int]]]
+    doc, *, plan: list[tuple[str, list[int]]]
 ) -> list[tuple[str, bytes]]:
-    """Конвертує план в батчі байтів"""
-    with fitz.open(str(pdf_path)) as doc:
-        result = []
-        for method, pages in plan:
-            with fitz.open() as writer:
-                for page_num in pages:
-                    writer.insert_pdf(doc, from_page=page_num, to_page=page_num)
-                result.append((method, writer.tobytes()))
+    """Converts the plan into a batch of bytes."""
+    result = []
+    for method, pages in plan:
+        with fitz.open() as writer:
+            for page_num in pages:
+                writer.insert_pdf(doc, from_page=page_num, to_page=page_num)
+            result.append((method, writer.tobytes()))
     return result
 
 
-def _has_significant_images(page: fitz.Page, *, size_ratio: float) -> bool:
+def _has_significant_images(page: fitz.Page, *, size_ratio: float = 0.05) -> bool:
     page_area = page.rect.width * page.rect.height
     for img in page.get_image_info():
-        img_area = img["width"] * img["height"]
-        if img_area / page_area > size_ratio:
-            return True
+        bbox = img.get("bbox")
+        if bbox:
+            img_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            if img_area / page_area > size_ratio:
+                return True
     return False
