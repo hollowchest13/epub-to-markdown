@@ -8,7 +8,8 @@ import logging
 from utils import collect_chapters_from_text
 from storage.saver import save_all_chapters
 from config import MODEL_VERSION
-from cli.cleaner import clean_text
+from cleaner import clean_text
+from tkinter import filedialog
 
 
 logger = logging.getLogger(__name__)
@@ -17,11 +18,22 @@ logger = logging.getLogger(__name__)
 def main():
     logging.basicConfig(level=logging.INFO)
     base_dir = Path(__file__).resolve().parent.parent.parent
-    books_dir: Path = base_dir / "books"
-    books_dir.mkdir(parents=True, exist_ok=True)
+    files = filedialog.askopenfilenames(
+        title="Select files",
+        initialdir="/",
+        filetypes=[
+            ("Documents", "*.pdf;*.epub;*.md"),
+            ("PDF файли", "*.pdf"),
+            ("EPUB файли", "*.epub"),
+            ("Markdown файли", "*.md"),
+        ],
+    )
     load_dotenv()
     client = genai.Client(api_key=os.environ.get("GEMINI_API"))
-    for file in books_dir.iterdir():
+    if not files:
+        return
+    files = list(map(Path, files))
+    for file in files:
         file_suffix = file.suffix
         output_dir: Path = base_dir / "output" / file.stem
         try:

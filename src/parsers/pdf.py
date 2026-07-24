@@ -11,7 +11,7 @@ from utils import (
 from google.genai import types
 from google import genai
 from models import BookFormat
-from cli.cleaner import clean_text
+from cleaner import clean_text
 import time
 import re
 import logging
@@ -123,7 +123,7 @@ def pdf_to_markdown_pro(
         )
         full_text += (chunk_text or "").strip() + "\n\n"
         logger.info(
-            "%s | Batch: %03d/%03d | method: %s | pages: %d | words: %d",
+            "%s | Batch: %03d/%03d | method: %s | pages: %d | words: %d \n",
             metadata["title"][:30],
             i,
             len(batches),
