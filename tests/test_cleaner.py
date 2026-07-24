@@ -1,5 +1,6 @@
 # test_clean_markdown.py
-from cli.cleaner import clean_text
+from cleaner import clean_text
+import pytest
 
 
 def test_removes_xml_declaration():
@@ -25,3 +26,17 @@ def test_collapses_multiple_newlines():
 def test_strips_whitespace():
     text = "  Hello world  "
     assert clean_text(text) == "Hello world"
+
+
+@pytest.mark.parametrize(
+    "html_input, expected_output",
+    [
+        ("<u></u>", ""),
+        ("<p>Hello <b>World</b>!</p>", "Hello World!"),
+        ('<a href="link">Link</a>', "Link"),
+        ("Just text", "Just text"),
+        ("<span><span>Nested</span> tags</span>", "Nested tags"),
+    ],
+)
+def test_remove_html_tags(html_input, expected_output):
+    assert clean_text(html_input) == expected_output
