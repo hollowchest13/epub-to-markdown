@@ -58,18 +58,23 @@ def call_gemini_api(
 ) -> Any:
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(model=model, contents=contents)
+            response = client.models.generate_content(
+                model=model,
+                contents=contents,
+            )
             text = response.text or ""
             if not expect_json:
                 return text
-            clean_text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-            logger.info(f"Відповідь {len(clean_text)} символів")
-            return json.loads(clean_text)
+            clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
+            logger.info(f"Відповідь {len(clean)} символів")
+            return json.loads(clean)
+
         except ClientError as e:
             logger.error(f"Attempt {attempt + 1} unsuccessful: {e}")
             if attempt == max_retries - 1:
                 raise
             time.sleep(OUT_OF_LIMIT_DELAY)
+
         except json.JSONDecodeError as e:
             logger.error(f"Attempt {attempt + 1}: Invalid JSON received: {e}")
             if attempt == max_retries - 1:
@@ -77,6 +82,7 @@ def call_gemini_api(
                     f"Could not get a valid JSON response after {max_retries} attempts"
                 ) from e
             time.sleep(API_DELAY)
+
         except Exception as e:
             if "503" in str(e):
                 wait_time = 2**attempt * 5
@@ -86,6 +92,7 @@ def call_gemini_api(
                 time.sleep(wait_time)
             else:
                 raise
+
     raise RuntimeError(f"Could not get a response after {max_retries} attempts")
 
 

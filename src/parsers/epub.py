@@ -1,5 +1,5 @@
 from bs4 import BeautifulSoup
-from cli.cleaner import clean_text
+from cleaner import clean_text
 import ebooklib
 from pathlib import Path
 from utils import clean_filename, build_metadata, images_to_md
@@ -15,7 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def extract_epub_metadata(*, book: epub.EpubBook, epub_path: Path):
+def extract_epub_metadata(book: epub.EpubBook, *, epub_path: Path):
     def first(key: str):
         values: Any = book.get_metadata("DC", key)
         # Checking: does the list exist, does it have a first element, and does the element have a value?
@@ -193,5 +193,5 @@ def epub_to_markdown_pro(
 
     logger.info("Completed! %s chapters → %s/", total_chapters, output_dir)
     logger.info(
-        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words"]
+        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words\n"]
     )
