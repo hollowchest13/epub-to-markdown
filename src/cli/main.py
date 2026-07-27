@@ -1,35 +1,39 @@
-from pathlib import Path
-from google import genai
-from parsers.epub import epub_to_markdown_pro
-from parsers.pdf import pdf_to_markdown_pro
-from dotenv import load_dotenv
-import os
 import logging
-from utils import collect_chapters_from_text
-from storage.saver import save_all_chapters
-from config import MODEL_VERSION
-from cleaner import clean_text
+from pathlib import Path
 from tkinter import filedialog
 
+from google import genai
+
+from cleaner import clean_text
+from config import BASE_DIR, MODEL_VERSION
+from parsers.epub import epub_to_markdown_pro
+from parsers.pdf import pdf_to_markdown_pro
+from storage.saver import save_all_chapters
+from utils import collect_chapters_from_text
+
+from .config_manager import ConfigManager
 
 logger = logging.getLogger(__name__)
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
-    base_dir = Path(__file__).resolve().parent.parent.parent
+    base_dir = BASE_DIR
+
+    config_manager = ConfigManager(base_dir=base_dir)
+    gemini_api_key = config_manager.get_api_key()
+
     files = filedialog.askopenfilenames(
         title="Select files",
         initialdir="/",
         filetypes=[
-            ("Documents", "*.pdf;*.epub;*.md"),
-            ("PDF файли", "*.pdf"),
-            ("EPUB файли", "*.epub"),
-            ("Markdown файли", "*.md"),
+            ("Documents", "*.pdf* .epub *.md"),
+            ("PDF files", "*.pdf"),
+            ("EPUB files", "*.epub"),
+            ("Markdown files", "*.md"),
         ],
     )
-    load_dotenv()
-    client = genai.Client(api_key=os.environ.get("GEMINI_API"))
+    client = genai.Client(api_key=gemini_api_key)
     if not files:
         return
     files = list(map(Path, files))
