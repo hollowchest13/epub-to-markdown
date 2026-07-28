@@ -22,14 +22,8 @@ class App(ctk.CTk):
         self.set_key_btn = ctk.CTkButton(
             self.controls_frame, text="Set API key", command=self._set_key
         )
-
-        self.progress = ctk.CTkProgressBar(self)
-        self.progress.pack(pady=10)
-        self.progress.set(0)
-
-        # Текстовий статус (наприклад: "Оброблено 3 з 10 глав")
-        self.status_label = ctk.CTkLabel(self, text="Готово до роботи")
-        self.status_label.pack(pady=10)
+        self.progress = ctk.CTkProgressBar(self.progress_frame)
+        self.status_label = ctk.CTkLabel(self, text="Ready")
 
     def _set_key(self):
         pass
@@ -40,7 +34,7 @@ class App(ctk.CTk):
 
     def start_process_thread(self):
         # Блокуємо кнопку, щоб не клікали двічі
-        self.btn.configure(state="disabled")
+        self.start_btn.configure(state="disabled")
 
         # Запускаємо важку роботу в фоновому потоці
         threading.Thread(target=self.run_heavy_process, daemon=True).start()
@@ -72,7 +66,7 @@ class App(ctk.CTk):
 
     def finish_process(self):
         self.status_label.configure(text="Конвертацію успішно завершено!")
-        self.btn.configure(state="normal")
+        self.start_btn.configure(state="normal")
 
 
 if __name__ == "__main__":
