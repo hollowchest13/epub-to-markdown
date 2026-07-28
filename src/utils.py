@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def clean_filename(*, file_path: Path):
-    # Прибираємо розширення (.pdf, .epub)
     name = file_path.stem
-    # Замінюємо нижнє підкреслення на пробіли
     return name.replace("_", " ").replace("-", " ").title()
 
 

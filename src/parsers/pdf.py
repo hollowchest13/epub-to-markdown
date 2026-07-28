@@ -1,25 +1,27 @@
+import logging
+import re
+import time
+from pathlib import Path
+
 import fitz
 import pymupdf4llm
-from pathlib import Path
+from google import genai
+from google.genai import types
+
+from cleaner import clean_text
+from config import (
+    API_DELAY,
+    CHAPTER_MIN_SIZE,
+    MAX_API_RETRIES,
+    MIN_CHUNK_LENGTH,
+)
+from models import BookFormat
 from storage.saver import save_all_chapters
 from utils import (
     build_metadata,
-    clean_filename,
     call_gemini_api,
+    clean_filename,
     collect_chapters_from_text,
-)
-from google.genai import types
-from google import genai
-from models import BookFormat
-from cleaner import clean_text
-import time
-import re
-import logging
-from config import (
-    MAX_API_RETRIES,
-    API_DELAY,
-    CHAPTER_MIN_SIZE,
-    MIN_CHUNK_LENGTH,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,23 +55,26 @@ def _get_chunk_text(
     method: str,
 ) -> str:
     if method == "gemini":
-        contents = [
-            types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
-            prompt_text,
-        ]
-        chunk_text = call_gemini_api(
-            client=client,
-            model=model,
-            max_retries=max_retries,
-            contents=contents,
-            expect_json=False,
-        )
-        if len(chunk_text) >= MIN_CHUNK_LENGTH:
-            return chunk_text
-        logger.warning(
-            "Result too short (%s characters). Falling back to local",
-            len(chunk_text),
-        )
+        try:
+            contents = [
+                types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
+                prompt_text,
+            ]
+            chunk_text = call_gemini_api(
+                client=client,
+                model=model,
+                max_retries=max_retries,
+                contents=contents,
+                expect_json=False,
+            )
+            if len(chunk_text) >= MIN_CHUNK_LENGTH:
+                return chunk_text
+            logger.warning(
+                "Result too short (%s characters). Falling back to local",
+                len(chunk_text),
+            )
+        except Exception:
+            logger.exception("Gemini API error: %s. Falling back to local conversion.")
 
     chunk_text = _local_conversion(pdf_bytes=pdf_bytes)
     logger.info("Local result has %s characters.", len(chunk_text))
