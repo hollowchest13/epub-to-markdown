@@ -2,6 +2,8 @@ from pathlib import Path
 import yaml
 import re
 import logging
+import shutil
+
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +81,8 @@ def save_all_chapters(
     metadata: dict,
 ) -> None:
     total_chapters = len(valid_chapters)
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     for index, (chapter_name, text) in enumerate(valid_chapters, start=1):
         save_chapter(

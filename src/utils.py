@@ -1,24 +1,23 @@
-from pathlib import Path
-from datetime import datetime
 import hashlib
+import json
+import logging
 import re
 import time
-import json
-from google import genai
-from google.genai.errors import ClientError
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
-from google.genai import types
-from config import MAX_API_RETRIES, API_DELAY, OUT_OF_LIMIT_DELAY
 
-import logging
+from google import genai
+from google.genai import types
+from google.genai.errors import ClientError
+
+from config import API_DELAY, MAX_API_RETRIES, OUT_OF_LIMIT_DELAY
 
 logger = logging.getLogger(__name__)
 
 
 def clean_filename(*, file_path: Path):
-    # Прибираємо розширення (.pdf, .epub)
     name = file_path.stem
-    # Замінюємо нижнє підкреслення на пробіли
     return name.replace("_", " ").replace("-", " ").title()
 
 
@@ -33,8 +32,8 @@ def build_metadata(*, source_file: Path, extra: dict) -> dict:
         "file_hash_sha256": get_file_hash(source_file),
         "file_size_kb": round(file_size_bytes / 1024, 2),
         # Convertation
-        "converted_date": datetime.now().strftime("%Y-%m-%d"),
-        "converted_at": datetime.now().isoformat(),
+        "converted_date": datetime.now(tz=timezone.utc).strftime("%Y-%m-%d"),
+        "converted_at": datetime.now(tz=timezone.utc).isoformat(),
     }
 
     return base | extra  # merge two dictionaries

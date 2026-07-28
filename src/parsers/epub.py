@@ -1,16 +1,18 @@
-from bs4 import BeautifulSoup
-from cleaner import clean_text
-import ebooklib
+import logging
 from pathlib import Path
-from utils import clean_filename, build_metadata, images_to_md
+from typing import Any
+
+import ebooklib
+from bs4 import BeautifulSoup
 from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
-from storage.saver import save_all_chapters
-from typing import Any
+
+from cleaner import clean_text
 from config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
 from models import BookFormat
-import logging
+from storage.saver import save_all_chapters
+from utils import build_metadata, clean_filename, images_to_md
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +106,9 @@ def collect_epub_chapters(
             if img_dict
             else {}
         )
-    except Exception as e:
-        logger.error(
-            "Failed to generate image descriptions; continuing without them %s",
-            e,
-            exc_info=True,
+    except Exception:
+        logger.exception(
+            "Failed to generate image descriptions; continuing without them"
         )
         image_descriptions = {}
 
@@ -128,8 +128,8 @@ def collect_epub_chapters(
                     header_text if header_text else f"Chapter {len(valid_chapters) + 1}"
                 )
                 valid_chapters.append((chapter_name, text))
-        except Exception as e:
-            logger.error("Error processing item during main loop %s", e, exc_info=True)
+        except Exception:
+            logger.exception("Error processing item during main loop")
 
     # Fallback
     if not valid_chapters:
@@ -143,9 +143,9 @@ def collect_epub_chapters(
                 )
                 if text.strip():
                     all_text.append(text)
-            except Exception as e:
-                logger.error(
-                    "Error processing item during fallback loop %s", e, exc_info=True
+            except Exception:
+                logger.exception(
+                    "Error processing item during fallback loop",
                 )
 
         return [("Full content", "\n\n".join(all_text))]
