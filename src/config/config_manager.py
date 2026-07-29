@@ -5,7 +5,7 @@ from pathlib import Path
 from google import genai
 from google.genai.errors import APIError
 
-from config import MODEL_VERSION
+from config.config import MODEL_VERSION
 
 logger = logging.getLogger(__name__)
 

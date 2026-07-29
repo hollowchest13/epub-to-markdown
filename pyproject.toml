@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pdf-epub-converter"
 version = "0.1.0"
-description = "Конвертація PDF/EPUB в Markdown для RAG"
+description = "Conversion PDF/EPUB to Markdown for RAG"
 requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4",
@@ -16,6 +16,7 @@ dependencies = [
     "pymupdf4llm",
     "pyyaml",
     "requests",
+    "customtkinter",
 ]
 [project.scripts]
 convert = "cli.main:main"

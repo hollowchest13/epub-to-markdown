@@ -9,23 +9,20 @@ class App(ctk.CTk):
         super().__init__()
         self.title("Book converter 4 LLM")
         self.geometry("400x250")
-        self.api_key_entry = ctk.CTkEntry(
-            self,
-        )
-        self.api_key_entry.pack()
         self.progress_frame = ctk.CTkFrame(self)
         self.controls_frame = ctk.CTkFrame(self)
 
         self.start_btn = ctk.CTkButton(
             self.controls_frame, text="Start", command=self.start_process_thread
         )
-        self.set_key_btn = ctk.CTkButton(
-            self.controls_frame, text="Set API key", command=self._set_key
+        self.change_key_btn = ctk.CTkButton(
+            self.controls_frame, text="Change API key", command=self._change_key
         )
         self.progress = ctk.CTkProgressBar(self.progress_frame)
-        self.status_label = ctk.CTkLabel(self, text="Ready")
+        self.status_label = ctk.CTkLabel(self.progress_frame, text="Ready")
+        self._pack_widgets()
 
-    def _set_key(self):
+    def _change_key(self):
         pass
 
     def _pack_widgets(self):
@@ -68,7 +65,3 @@ class App(ctk.CTk):
         self.status_label.configure(text="Конвертацію успішно завершено!")
         self.start_btn.configure(state="normal")
 
-
-if __name__ == "__main__":
-    app = App()
-    app.mainloop()

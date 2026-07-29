@@ -5,8 +5,8 @@ from tkinter import filedialog
 from google import genai
 
 from cleaner import clean_text
-from cli.config_manager import ConfigManager
-from config import BASE_DIR, MODEL_VERSION
+from config.config_manager import ConfigManager
+from config.config import BASE_DIR, MODEL_VERSION
 from parsers.epub import epub_to_markdown_pro
 from parsers.pdf import pdf_to_markdown_pro
 from storage.saver import save_all_chapters
@@ -15,7 +15,7 @@ from utils import collect_chapters_from_text
 logger = logging.getLogger(__name__)
 
 
-def main():
+def run_cli():
     logging.basicConfig(level=logging.INFO)
     base_dir = BASE_DIR
 
@@ -76,5 +76,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_cli()
     input("Press Enter to exit...")
