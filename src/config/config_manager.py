@@ -18,30 +18,13 @@ class ConfigManager:
         self.model = model
         self.api_key_name = "GEMINI_API"
 
-    def get_api_key(self) -> str:
+    def get_api_key(self) -> str | None:
         """Main method: checks the key, prompts for input if necessary, and saves."""
         if self.env_path.exists():
             api_key = self._read_key_from_file()
             if api_key:
                 os.environ[self.api_key_name] = api_key
                 return api_key
-
-        print("--- First run: configuration settings ---")
-        while True:
-            user_input = input("Enter your Gemini API key: ").strip()
-
-            if not user_input:
-                print("The key cannot be empty. Please try again.")
-                continue
-
-            print("Verifying key via Gemini API...")
-            if self._validate_key(user_input):
-                self._save_key_to_file(user_input)
-                os.environ[self.api_key_name] = user_input
-                print("Setup completed successfully!\n")
-                return user_input
-            else:
-                print("Invalid key or internet problem. Try again.")
 
     def _validate_key(self, api_key: str) -> bool:
         """Verify the key with a real request to Gemini."""
@@ -55,7 +38,7 @@ class ConfigManager:
         except APIError:
             return False
         except (ConnectionError, TimeoutError):
-            print("Internet connection error. Check your connection.")
+            logger.exception("Internet connection error. Check your connection.")
             return False
 
     def _save_key_to_file(self, api_key: str):
@@ -75,3 +58,10 @@ class ConfigManager:
                 "Could not read configuration file. %s: %s", self.env_path, e
             )
         return ""
+
+    def save_and_activate(self, api_key: str) -> bool:
+        if self._validate_key(api_key):
+            self._save_key_to_file(api_key)
+            os.environ[self.api_key_name] = api_key
+            return True
+        return False

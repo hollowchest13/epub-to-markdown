@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
 
-from config import API_DELAY, MAX_API_RETRIES, OUT_OF_LIMIT_DELAY
+from config.config import API_DELAY, MAX_API_RETRIES, OUT_OF_LIMIT_DELAY
 
 logger = logging.getLogger(__name__)
 

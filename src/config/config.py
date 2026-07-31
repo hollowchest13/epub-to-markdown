@@ -7,6 +7,7 @@ OUT_OF_LIMIT_DELAY = 60
 CHAPTER_MIN_SIZE = 200
 MAX_API_RETRIES = 5
 MIN_CHUNK_LENGTH = 50
+
 MODEL_VERSION = "gemini-3.1-flash-lite"
 
 if getattr(sys, "frozen", False):
