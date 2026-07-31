@@ -11,25 +11,19 @@ from core.converter import convert_to_md
 logger = logging.getLogger(__name__)
 
 
-def run_cli():
+def run_cli(config_manager:ConfigManager):
     logging.basicConfig(level=logging.INFO)
     base_dir = BASE_DIR
-
-    config_manager = ConfigManager(base_dir=base_dir)
     gemini_api_key = config_manager.get_api_key()
-
-    files = filedialog.askopenfilenames(
-        title="Select files",
-        initialdir="/",
-        filetypes=[
-            ("Documents", "*.pdf* .epub *.md"),
-            ("PDF files", "*.pdf"),
-            ("EPUB files", "*.epub"),
-            ("Markdown files", "*.md"),
-        ],
-    )
+    files=_get_files_cli()
     client = genai.Client(api_key=gemini_api_key)
     if not files:
         return
-    files = list(map(Path, files))
     convert_to_md(files, client=client, model=MODEL_VERSION, target_dir=base_dir)
+
+def _get_files_cli()->list[Path]:
+    while True:
+        book_dir=Path(input("Input folder path: "))
+        if book_dir.is_dir():
+            return [f for f in book_dir.iterdir() if f.is_file()]
+            

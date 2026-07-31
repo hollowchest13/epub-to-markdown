@@ -33,7 +33,7 @@ class App(ctk.CTk):
         self._pack_widgets()
 
     def show_key_window(self, *, key_changer):
-        self.key_window = KeyWindow(key_changer=self._key_changer)
+        self.key_window = KeyWindow(self,key_changer=self._key_changer)
 
     def _pack_widgets(self):
         PADDING = 10
@@ -44,13 +44,6 @@ class App(ctk.CTk):
 
         self.start_btn.pack(padx=PADDING, pady=PADDING, side=LEFT)
         self.change_key_btn.pack(padx=PADDING, pady=PADDING, side=LEFT)
-
-    def start_process_thread(self):
-        # Блокуємо кнопку, щоб не клікали двічі
-        self.start_btn.configure(state="disabled")
-
-        # Запускаємо важку роботу в фоновому потоці
-        threading.Thread(target=self.run_heavy_process, daemon=True).start()
 
     def run_heavy_process(self, processor: Callable):
         # Тут викликається ваша логіка з папки core/
@@ -65,34 +58,24 @@ class App(ctk.CTk):
             # Оновлюємо UI безпечно через потік
             self.after(
                 0,
-                self.update_ui,
+                self._update_ui,
                 progress_value,
                 f"Оброблено кроків: {i}/{total_steps}",
             )
 
         # Коли все готово
-        self.after(0, self.finish_process)
+        self.after(0, self._finish_process)
 
-    def update_ui(self, value, text):
+    def _on_progress(self, current: int, total: int):
+        self.after(0, self._update_ui, current / total, f"{current}/{total}")
+
+    def _update_ui(self, value, text):
         self.progress.set(value)
         self.status_label.configure(text=text)
 
-    def finish_process(self):
+    def _finish_process(self):
         self.status_label.configure(text="Конвертацію успішно завершено!")
         self.start_btn.configure(state="normal")
 
 
-def threaded(func):
-    def wrapper(self, *args, **kwargs):
-        self.start_btn.configure(state="disabled")
-        thread = threading.Thread(target=lambda: run(self, func, *args, **kwargs))
-        thread.daemon = True
-        thread.start()
 
-    def run(self, func, *args, **kwargs):
-        try:
-            func(self, *args, **kwargs)
-        finally:
-            self.start_btn.configure(state="normal")
-
-    return wrapper

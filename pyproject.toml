@@ -19,7 +19,7 @@ dependencies = [
     "customtkinter",
 ]
 [project.scripts]
-convert = "cli.main:main"
+convert = "main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

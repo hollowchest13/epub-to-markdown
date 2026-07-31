@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def convert_to_md(
-    files: list[Path], client: genai.Client, target_dir: Path, model: str
+    files: list[Path],*, client: genai.Client, target_dir: Path, model: str,on_progress: Callable[[int, int], None] = lambda *_: None
 ):
     for file in files:
         file_suffix = file.suffix

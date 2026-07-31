@@ -15,3 +15,5 @@ if getattr(sys, "frozen", False):
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
     print(BASE_DIR)
+
+DEFAULT_SETTINGS={"mode":"gui"}

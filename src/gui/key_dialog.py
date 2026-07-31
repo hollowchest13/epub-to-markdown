@@ -2,8 +2,8 @@ import customtkinter as ctk
 
 
 class KeyWindow(ctk.CTkToplevel):
-    def __init__(self, *, key_changer):
-        super().__init__()
+    def __init__(self,master, *, key_changer):
+        super().__init__(master)
         self.title("Enter gemini API key")
         self.geometry("350x180")
         self.resizable(False, False)
@@ -28,4 +28,5 @@ class KeyWindow(ctk.CTkToplevel):
         if key:
             #   save_api_key(key)
             self.api_key = key
+            self._key_changer(key)
             self.destroy()
