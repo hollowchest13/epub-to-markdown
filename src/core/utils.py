@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -139,7 +140,12 @@ def _fetch_img_batch_with_retry(
 
 
 def images_to_md(
-    *, client, model, img_dict: dict[str, bytes], batch_size: int
+    *,
+    client,
+    model,
+    img_dict: dict[str, bytes],
+    batch_size: int,
+    callback: Callable = lambda *args, **kwargs: None,
 ) -> dict[str, str]:
     items = list(img_dict.items())
     images_num = len(items)

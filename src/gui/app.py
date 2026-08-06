@@ -1,81 +1,79 @@
-import threading
-import time
-from collections.abc import Callable
 from tkinter import LEFT
 
 import customtkinter as ctk
 
+from controllers.app_controller import AppController
+from controllers.key_win_controller import KeyWinController
 from gui.key_dialog import KeyWindow
 
 
 class App(ctk.CTk):
-    def __init__(self, *, processor: Callable, key_changer: Callable):
+    def __init__(self, app_controller: AppController):
         super().__init__()
         self.title("Book converter 4 LLM")
-        self.geometry("400x250")
+        self.geometry("600x100")
         self.progress_frame = ctk.CTkFrame(self)
         self.controls_frame = ctk.CTkFrame(self)
-        self._processor = processor
-        self._key_changer = key_changer
+        self._controller = app_controller
+        self._controller.gui_callback = self.update_progress_ui
 
         self.start_btn = ctk.CTkButton(
             self.controls_frame,
             text="Start",
-            command=lambda: self.run_heavy_process(processor=self._processor),
+            command=self._controller.handle_start,
         )
         self.change_key_btn = ctk.CTkButton(
             self.controls_frame,
             text="Change API key",
-            command=lambda: self.show_key_window(key_changer=key_changer),
+            command=self.show_key_window,
         )
         self.progress = ctk.CTkProgressBar(self.progress_frame)
-        self.status_label = ctk.CTkLabel(self.progress_frame, text="Ready")
+        self.progress.set(0)
+        self.progress_label = ctk.CTkLabel(self.progress_frame, text="Ready")
+        self.status_text = ctk.CTkTextbox(self.progress_frame)
         self._pack_widgets()
 
-    def show_key_window(self, *, key_changer):
-        self.key_window = KeyWindow(self,key_changer=self._key_changer)
+    def show_key_window(self):
+        if hasattr(self, "key_window") and self.key_window.winfo_exists():
+            self.key_window.focus()
+            return
+        key_win_controller = KeyWinController()
+        self.key_window = KeyWindow(self, controller=key_win_controller)
 
     def _pack_widgets(self):
-        PADDING = 10
-        self.controls_frame.pack(fill="both", side=LEFT, padx=PADDING, pady=PADDING)
+        PADDING = 5
         self.progress_frame.pack(
-            expand=True, fill="both", side=LEFT, padx=PADDING, pady=PADDING
+            side=LEFT, fill="both", expand=True, padx=PADDING, pady=PADDING
+        )
+        self.controls_frame.pack(
+            side=LEFT, fill="y", expand=False, padx=PADDING, pady=PADDING
+        )
+        self.progress_frame.grid_rowconfigure(0, weight=1)
+        self.progress_frame.grid_rowconfigure(1, weight=0)
+        self.progress_frame.grid_rowconfigure(2, weight=0)
+        self.progress_frame.grid_rowconfigure(3, weight=1)
+        self.progress_frame.grid_columnconfigure(0, weight=1)
+
+        self.progress_label.grid(
+            row=1, column=0, sticky="ew", padx=PADDING, pady=(0, 2)
+        )
+        self.progress.grid(row=2, column=0, sticky="ew", padx=PADDING, pady=(2, 0))
+        self.controls_frame.grid_rowconfigure(0, weight=1)
+        self.controls_frame.grid_rowconfigure(1, weight=0)
+        self.controls_frame.grid_rowconfigure(2, weight=0)
+        self.controls_frame.grid_rowconfigure(3, weight=1)
+        self.controls_frame.grid_columnconfigure(0, weight=1)
+        self.start_btn.grid(row=1, column=0, sticky="ew", padx=PADDING, pady=(0, 3))
+        self.change_key_btn.grid(
+            row=2, column=0, sticky="ew", padx=PADDING, pady=(3, 0)
         )
 
-        self.start_btn.pack(padx=PADDING, pady=PADDING, side=LEFT)
-        self.change_key_btn.pack(padx=PADDING, pady=PADDING, side=LEFT)
+    def update_progress_ui(self, *, current: int, total: int, text: str = ""):
 
-    def run_heavy_process(self, processor: Callable):
-        # Тут викликається ваша логіка з папки core/
-        total_steps = 5
-        for i in range(1, total_steps + 1):
-            # Імітуємо роботу (парсинг, запит до API тощо)
-            time.sleep(1)
+        value = current / total if total > 0 else 0.0
+        self.after(0, lambda: self._apply_ui_update(value, text))
 
-            # Рахуємо відсотки (від 0.0 до 1.0)
-            progress_value = i / total_steps
+    def _apply_ui_update(self, progress_value: float, text: str):
 
-            # Оновлюємо UI безпечно через потік
-            self.after(
-                0,
-                self._update_ui,
-                progress_value,
-                f"Оброблено кроків: {i}/{total_steps}",
-            )
-
-        # Коли все готово
-        self.after(0, self._finish_process)
-
-    def _on_progress(self, current: int, total: int):
-        self.after(0, self._update_ui, current / total, f"{current}/{total}")
-
-    def _update_ui(self, value, text):
-        self.progress.set(value)
-        self.status_label.configure(text=text)
-
-    def _finish_process(self):
-        self.status_label.configure(text="Конвертацію успішно завершено!")
-        self.start_btn.configure(state="normal")
-
-
-
+        self.progress.set(progress_value)
+        self.progress_label.configure(text=text)

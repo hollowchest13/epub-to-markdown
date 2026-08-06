@@ -13,7 +13,7 @@ MODEL_VERSION = "gemini-3.1-flash-lite"
 if getattr(sys, "frozen", False):
     BASE_DIR = Path(sys.executable).resolve().parent
 else:
-    BASE_DIR = Path(__file__).resolve().parent.parent
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
     print(BASE_DIR)
 
-DEFAULT_SETTINGS={"mode":"gui"}
+DEFAULT_SETTINGS = {"mode": "gui"}

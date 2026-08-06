@@ -1,6 +1,7 @@
 import logging
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import fitz
@@ -8,21 +9,21 @@ import pymupdf4llm
 from google import genai
 from google.genai import types
 
-from cleaner import clean_text
-from config import (
+from config.config import (
     API_DELAY,
     CHAPTER_MIN_SIZE,
     MAX_API_RETRIES,
     MIN_CHUNK_LENGTH,
 )
-from models import BookFormat
-from storage.saver import save_all_chapters
-from utils import (
+from core.cleaner import clean_text
+from core.models import BookFormat
+from core.utils import (
     build_metadata,
     call_gemini_api,
     clean_filename,
     collect_chapters_from_text,
 )
+from storage.saver import save_all_chapters
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,7 @@ def pdf_to_markdown_pro(
     output_dir,
     client: genai.Client,
     model: str,
+    callback: Callable = lambda *args, **kwargs: None,
 ):
     prompt_text = """Task: Extract the structural and textual content from the provided material and represent it in Markdown format for personal analysis and indexing.
             Guidelines:

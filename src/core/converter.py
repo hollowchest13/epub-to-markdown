@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 
 from core.cleaner import clean_text
 from core.utils import Path, collect_chapters_from_text, genai
@@ -10,7 +11,12 @@ logger = logging.getLogger(__name__)
 
 
 def convert_to_md(
-    files: list[Path],*, client: genai.Client, target_dir: Path, model: str,on_progress: Callable[[int, int], None] = lambda *_: None
+    files: list[Path],
+    *,
+    client: genai.Client,
+    target_dir: Path,
+    model: str,
+    callback: Callable = lambda *args, **kwargs: None,
 ):
     for file in files:
         file_suffix = file.suffix
@@ -23,6 +29,7 @@ def convert_to_md(
                         output_dir=output_dir,
                         client=client,
                         model=model,
+                        callback=callback,
                     )
                 case ".pdf":
                     pdf_to_markdown_pro(
@@ -30,6 +37,7 @@ def convert_to_md(
                         output_dir=output_dir,
                         client=client,
                         model=model,
+                        callback=callback,
                     )
                 case ".md":
                     text = file.read_text(encoding="utf-8")

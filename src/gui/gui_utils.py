@@ -1,5 +1,6 @@
 import threading
 
+
 def threaded(func):
     def wrapper(self, *args, **kwargs):
         self.start_btn.configure(state="disabled")

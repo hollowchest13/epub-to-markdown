@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -8,11 +9,11 @@ from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
 
-from cleaner import clean_text
-from config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
-from models import BookFormat
+from config.config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
+from core.cleaner import clean_text
+from core.models import BookFormat
+from core.utils import build_metadata, clean_filename, images_to_md
 from storage.saver import save_all_chapters
-from utils import build_metadata, clean_filename, images_to_md
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,12 @@ def replace_images(soup, image_descriptions: dict[str, str]):
 
 
 def epub_to_markdown_pro(
-    *, client: genai.Client, model: str, epub_path: Path, output_dir: Path
+    *,
+    client: genai.Client,
+    model: str,
+    epub_path: Path,
+    output_dir: Path,
+    callback: Callable = lambda *args, **kwargs: None,
 ):
     book = epub.read_epub(epub_path)
     metadata = extract_epub_metadata(book=book, epub_path=epub_path)

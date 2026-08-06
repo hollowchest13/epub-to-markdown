@@ -1,25 +1,30 @@
+import json
 import logging
 import os
 from pathlib import Path
 
 from google import genai
 from google.genai.errors import APIError
-import json
-from config.config import MODEL_VERSION,DEFAULT_SETTINGS
+
+from config.config import DEFAULT_SETTINGS, MODEL_VERSION
 
 logger = logging.getLogger(__name__)
 
-def get_settings(settings_json: Path, default_settings: dict = DEFAULT_SETTINGS) -> dict:
+
+def get_settings(
+    settings_json: Path, default_settings: dict = DEFAULT_SETTINGS
+) -> dict:
     try:
         if not settings_json.exists():
             settings_json.write_text(
                 json.dumps(default_settings, indent=4, ensure_ascii=False),
-                encoding="utf-8"
+                encoding="utf-8",
             )
         return json.loads(settings_json.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Could not read settings file: %s", e)
     return default_settings
+
 
 class ConfigManager:
     def __init__(self, base_dir: Path, filename=".env", model: str = MODEL_VERSION):

@@ -2,13 +2,13 @@ import customtkinter as ctk
 
 
 class KeyWindow(ctk.CTkToplevel):
-    def __init__(self,master, *, key_changer):
+    def __init__(self, master, *, controller):
         super().__init__(master)
         self.title("Enter gemini API key")
         self.geometry("350x180")
         self.resizable(False, False)
         self.api_key = None
-        self._key_changer = key_changer
+        self._controller = controller
 
         self.label = ctk.CTkLabel(
             self, text="An API key is required for the program to work:"
@@ -20,13 +20,7 @@ class KeyWindow(ctk.CTkToplevel):
         )
         self.entry.pack(pady=5)
 
-        self.btn = ctk.CTkButton(self, text="Save and continue", command=self.save)
+        self.btn = ctk.CTkButton(
+            self, text="Save and continue", command=self._controller.handle_save
+        )
         self.btn.pack(pady=15)
-
-    def save(self):
-        key = self.entry.get().strip()
-        if key:
-            #   save_api_key(key)
-            self.api_key = key
-            self._key_changer(key)
-            self.destroy()
