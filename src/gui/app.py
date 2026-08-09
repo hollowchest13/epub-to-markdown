@@ -71,7 +71,7 @@ class App(ctk.CTk):
     def update_progress_ui(self, *, current: int, total: int, text: str = ""):
 
         value = current / total if total > 0 else 0.0
-        text = text[:30]
+        text = f"{text[:30]}..." if len(text) > 30 else text
         self.after(0, lambda: self._apply_ui_update(value, text))
 
     def _apply_ui_update(self, progress_value: float, text: str):
