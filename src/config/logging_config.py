@@ -1,19 +1,23 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from config.config import BASE_DIR
 
 
-def setup_console_logging():
-    logging.basicConfig(level=logging.INFO)
-
-
-def setup_file_logging(
-    log_path: Path, max_bytes: int = 5 * 1024 * 1024, backup_count: int = 1
-):
-    handler = RotatingFileHandler(
-        log_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
-    )
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    )
-    logging.basicConfig(level=logging.INFO, handlers=[handler])
+def setup_logging(mode: str, level: int = logging.INFO):
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    root_logger.handlers.clear()
+    
+    if mode == "cli":
+        handler = logging.StreamHandler()
+    else:
+        log_path = BASE_DIR / "app.log"
+        log_path.parent.mkdir(exist_ok=True)
+        handler = RotatingFileHandler(
+            log_path, maxBytes=5 * 1024 * 1024, backupCount=1, encoding="utf-8"
+        )
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+        )
+    
+    root_logger.addHandler(handler)

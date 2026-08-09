@@ -119,6 +119,8 @@ def pdf_to_markdown_pro(
         batches = _plan_to_bytes(doc, plan=plan)
 
     full_text = ""
+    total_pages = sum(len(page_nums) for _, page_nums in plan)
+    processed_pages = 0
     for i, ((method, page_nums), (_, batch_bytes)) in enumerate(zip(plan, batches), 1):
         chunk_text = _get_chunk_text(
             client=client,
@@ -129,6 +131,8 @@ def pdf_to_markdown_pro(
             method=method,
         )
         full_text += (chunk_text or "").strip() + "\n\n"
+        processed_pages += len(page_nums)
+        callback(current=processed_pages, total=total_pages, text=f"{pdf_path.stem} page {processed_pages}/{total_pages}")
         logger.info(
             "%s | Batch: %03d/%03d | method: %s | pages: %d | words: %d \n",
             metadata["title"][:30],
@@ -150,6 +154,7 @@ def pdf_to_markdown_pro(
         valid_chapters=valid_chapters,
         output_dir=output_dir,
         metadata=metadata,
+        callback=callback
     )
     logger.info(f"\nCompleted! {total_chapters} chapters → {output_dir}/")
     logger.info(f"Book: {metadata['title']} | ~{word_count:,} words")

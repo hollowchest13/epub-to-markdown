@@ -92,7 +92,7 @@ def _extract_chapter_text(
 
 
 def collect_epub_chapters(
-    *, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int
+    *, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int,callback:Callable=lambda *args, **kwargs:None
 ) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
     # Використовуємо spine_ids, щоб отримати елементи
@@ -102,7 +102,7 @@ def collect_epub_chapters(
     try:
         image_descriptions = (
             images_to_md(
-                client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE
+                file_name=book.title,client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE,callback=callback
             )
             if img_dict
             else {}
@@ -190,14 +190,14 @@ def epub_to_markdown_pro(
     book = epub.read_epub(epub_path)
     metadata = extract_epub_metadata(book=book, epub_path=epub_path)
     valid_chapters = collect_epub_chapters(
-        book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE
+        book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE,callback=callback
     )
     total_chapters = len(valid_chapters)
     save_all_chapters(
-        valid_chapters=valid_chapters, output_dir=output_dir, metadata=metadata
+        valid_chapters=valid_chapters, output_dir=output_dir, metadata=metadata,callback=callback
     )
 
     logger.info("Completed! %s chapters → %s/", total_chapters, output_dir)
     logger.info(
-        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words\n"]
+        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words"]
     )

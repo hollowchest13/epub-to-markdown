@@ -5,14 +5,12 @@ from google import genai
 
 from config.config import BASE_DIR, MODEL_VERSION
 from config.config_manager import ConfigManager
-from config.logging_config import setup_console_logging
 from core.converter import convert_to_md
 
 logger = logging.getLogger(__name__)
 
 
 def run_cli(config_manager: ConfigManager):
-    setup_console_logging()
     base_dir = BASE_DIR
     gemini_api_key = config_manager.get_api_key()
     files = _get_files_cli()

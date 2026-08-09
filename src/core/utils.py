@@ -141,6 +141,7 @@ def _fetch_img_batch_with_retry(
 
 def images_to_md(
     *,
+    file_name:str,
     client,
     model,
     img_dict: dict[str, bytes],
@@ -153,6 +154,8 @@ def images_to_md(
 
     for i in range(0, images_num, batch_size):
         batch = items[i : i + batch_size]
+        current = min(i + batch_size, images_num)
+        callback(current=current, total=images_num, text=f"{file_name} images {current}/{images_num}")
         parts = []
         for name, img_data in batch:
             parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpeg"))
