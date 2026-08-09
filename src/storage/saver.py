@@ -97,5 +97,5 @@ def save_all_chapters(
             book_metadata=metadata,
             index=index,
         )
-        callback(current=index, total=total_chapters, text=f"Saving {index}/{total_chapters}: {chapter_name}")
+        callback(current=index, total=total_chapters, text=f"Saving {index}/{total_chapters} Chapter: {chapter_name}")
         logger.info(f"[{index}/{total_chapters}] Saved: {chapter_name}")
