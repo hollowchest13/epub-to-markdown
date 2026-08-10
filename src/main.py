@@ -2,8 +2,8 @@ import logging
 
 from cli.run_cli import run_cli
 from config.config import BASE_DIR
-from config.logging_config import setup_logging
 from config.config_manager import ConfigManager, get_settings
+from config.logging_config import setup_logging
 from gui.run_gui import run_gui
 
 logger = logging.getLogger(__name__)

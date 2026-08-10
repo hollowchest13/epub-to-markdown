@@ -4,7 +4,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 import pymupdf4llm
 from google import genai
 from google.genai import types
@@ -132,7 +132,11 @@ def pdf_to_markdown_pro(
         )
         full_text += (chunk_text or "").strip() + "\n\n"
         processed_pages += len(page_nums)
-        callback(current=processed_pages, total=total_pages, text=f"{pdf_path.stem} page {processed_pages}/{total_pages}")
+        callback(
+            current=processed_pages,
+            total=total_pages,
+            text=f"{pdf_path.stem} page {processed_pages}/{total_pages}",
+        )
         logger.info(
             "%s | Batch: %03d/%03d | method: %s | pages: %d | words: %d \n",
             metadata["title"][:30],
@@ -154,7 +158,7 @@ def pdf_to_markdown_pro(
         valid_chapters=valid_chapters,
         output_dir=output_dir,
         metadata=metadata,
-        callback=callback
+        callback=callback,
     )
     logger.info(f"\nCompleted! {total_chapters} chapters → {output_dir}/")
     logger.info(f"Book: {metadata['title']} | ~{word_count:,} words")
