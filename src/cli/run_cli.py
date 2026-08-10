@@ -44,8 +44,8 @@ def _get_files_cli() -> list[Path]:
         return [f for f in book_dir.iterdir() if f.is_file()]
 
     while True:
-        user_input = input("Input folder path (or 'exit' to quit): ").strip()
-        if user_input.lower() == "exit":
+        user_input = input("Input folder path (or 'q' to quit): ").strip()
+        if user_input.lower() == "q":
             raise SystemExit("The program has been stopped by the user.")
 
         book_dir = Path(user_input)
