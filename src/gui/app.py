@@ -22,7 +22,7 @@ class App(ctk.CTk):
 
         self._controller.gui_callback = self.update_progress_ui
         self._key_win_controller = key_win_controller
-        self._key_win_controller.on(event="show_msg", callback=self.show_key_window)
+        self._key_win_controller.on(event="show_msg", callback=self.show_msg)
 
         self.start_btn = ctk.CTkButton(
             self.controls_frame,
