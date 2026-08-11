@@ -20,7 +20,8 @@ class KeyWindow(ctk.CTkToplevel):
         )
         self.entry.pack(pady=5)
 
-        self.btn = ctk.CTkButton(
-            self, text="Save and continue", command=self._controller.handle_save
-        )
+        self.btn = ctk.CTkButton(self, text="Save and continue", command=self._on_save)
         self.btn.pack(pady=15)
+
+    def _on_save(self):
+        self._controller.save_key(api_key=self.entry.get().strip())

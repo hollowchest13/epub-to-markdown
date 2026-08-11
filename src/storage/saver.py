@@ -1,11 +1,10 @@
+import logging
+import re
+import shutil
 from collections.abc import Callable
 from pathlib import Path
+
 import yaml
-import re
-import logging
-import shutil
-
-
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +80,7 @@ def save_all_chapters(
     valid_chapters: list[tuple[str, str]],
     output_dir: Path,
     metadata: dict,
-    callback:Callable=lambda *args,**kwargs:None
+    callback: Callable = lambda *args, **kwargs: None,
 ) -> None:
     total_chapters = len(valid_chapters)
     if output_dir.exists():
@@ -97,5 +96,9 @@ def save_all_chapters(
             book_metadata=metadata,
             index=index,
         )
-        callback(current=index, total=total_chapters, text=f"Saving {index}/{total_chapters} Chapter: {chapter_name}")
+        callback(
+            current=index,
+            total=total_chapters,
+            text=f"Saving {index}/{total_chapters} Chapter: {chapter_name}",
+        )
         logger.info(f"[{index}/{total_chapters}] Saved: {chapter_name}")

@@ -17,6 +17,8 @@ dependencies = [
     "pyyaml",
     "requests",
     "customtkinter",
+    "CTKMessagebox",
+    "python-dotenv"
 ]
 [project.scripts]
 convert = "main:main"

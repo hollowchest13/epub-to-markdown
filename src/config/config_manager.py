@@ -3,6 +3,7 @@ import logging
 import os
 from pathlib import Path
 
+from dotenv import set_key
 from google import genai
 from google.genai.errors import APIError
 
@@ -36,31 +37,39 @@ class ConfigManager:
 
     def get_api_key(self) -> str | None:
         """Main method: checks the key, prompts for input if necessary, and saves."""
-        if self.env_path.exists():
+        if not self.env_path.exists():
+            return None
+        else:
             api_key = self._read_key_from_file()
             if api_key:
                 os.environ[self.api_key_name] = api_key
-                return api_key
+                return api_key if self._validate_key(api_key=api_key) else None
 
-    def _validate_key(self, api_key: str) -> bool:
-        """Verify the key with a real request to Gemini."""
+    def _validate_key(self, api_key: str) -> str:
+        """
+        Verify the key with a real request to Gemini.
+        Return api_key:str if is valid or raise ValueError if not.
+        Also raises ConnectionError, TimeoutError if bad internet connection.
+        """
         try:
             client = genai.Client(api_key=api_key)
             client.models.generate_content(
                 model=self.model,
                 contents="Test",
             )
-            return True
+            return api_key
         except APIError:
-            return False
+            logger.warning("Invalid API key")
+            raise ValueError("Invalid API key")
         except (ConnectionError, TimeoutError):
             logger.exception("Internet connection error. Check your connection.")
-            return False
+            raise ConnectionError("Internet connection error. Check your connection.")
+        except Exception:
+            logger.exception("Unexpected error during API key validation.")
+            raise
 
     def _save_key_to_file(self, api_key: str):
-        """Stores the key in an .env file near the .exe."""
-        with open(self.env_path, "w", encoding="utf-8") as f:
-            f.write(f"{self.api_key_name}={api_key}\n")
+        set_key(self.env_path, self.api_key_name, api_key)
 
     def _read_key_from_file(self) -> str:
         """Reads the key from the .env file."""
@@ -75,9 +84,7 @@ class ConfigManager:
             )
         return ""
 
-    def save_and_activate(self, api_key: str) -> bool:
-        if self._validate_key(api_key):
-            self._save_key_to_file(api_key)
-            os.environ[self.api_key_name] = api_key
-            return True
-        return False
+    def save_and_activate(self, api_key: str):
+        api_key = self._validate_key(api_key)
+        self._save_key_to_file(api_key)
+        os.environ[self.api_key_name] = api_key

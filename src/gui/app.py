@@ -1,6 +1,7 @@
-from tkinter import LEFT
+from tkinter import LEFT, filedialog
 
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 
 from controllers.app_controller import AppController
 from controllers.key_win_controller import KeyWinController
@@ -8,37 +9,71 @@ from gui.key_dialog import KeyWindow
 
 
 class App(ctk.CTk):
-    def __init__(self, app_controller: AppController):
+    def __init__(
+        self, app_controller: AppController, key_win_controller: KeyWinController
+    ):
         super().__init__()
         self.title("Book converter 4 LLM")
         self.geometry("600x100")
         self.progress_frame = ctk.CTkFrame(self)
         self.controls_frame = ctk.CTkFrame(self)
         self._controller = app_controller
+        self._controller.on(event="no_api_key", callback=self.show_key_window)
+
         self._controller.gui_callback = self.update_progress_ui
+        self._key_win_controller = key_win_controller
+        self._key_win_controller.on(event="show_msg", callback=self.show_key_window)
 
         self.start_btn = ctk.CTkButton(
             self.controls_frame,
             text="Start",
-            command=self._controller.handle_start,
+            command=self._on_start,
         )
         self.change_key_btn = ctk.CTkButton(
             self.controls_frame,
             text="Change API key",
             command=self.show_key_window,
         )
+
         self.progress = ctk.CTkProgressBar(self.progress_frame)
         self.progress.set(0)
         self.progress_label = ctk.CTkLabel(self.progress_frame, text="Ready")
         self.status_text = ctk.CTkTextbox(self.progress_frame)
         self._pack_widgets()
 
+    def show_msg(self, *, msg: str, msg_type: str):
+        title = {
+            "error": "Error",
+            "success": "Success",
+            "info": "Info",
+        }.get(msg_type, "Info")
+
+        CTkMessagebox(title=title, message=msg)
+
+    def _on_start(self):
+        files = filedialog.askopenfilenames(
+            title="Select files",
+            initialdir="/",
+            filetypes=[
+                ("Documents", "*.pdf *.epub *.md"),
+                ("PDF files", "*.pdf"),
+                ("EPUB files", "*.epub"),
+                ("Markdown files", "*.md"),
+            ],
+        )
+        if not files:
+            return
+        api_key = self._controller.get_api_key()
+        if not api_key:
+            api_key = self.show_key_window()
+
+        self._controller.convert_files(files=files, api_key=api_key)
+
     def show_key_window(self):
         if hasattr(self, "key_window") and self.key_window.winfo_exists():
             self.key_window.focus()
             return
-        key_win_controller = KeyWinController()
-        self.key_window = KeyWindow(self, controller=key_win_controller)
+        self.key_window = KeyWindow(self, controller=self._key_win_controller)
 
     def _pack_widgets(self):
         PADDING = 5
