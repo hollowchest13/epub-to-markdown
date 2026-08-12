@@ -85,6 +85,5 @@ class ConfigManager:
         return ""
 
     def save_and_activate(self, api_key: str):
-        api_key = self.validate_key(api_key)
         self._save_key_to_file(api_key)
         os.environ[self.api_key_name] = api_key

@@ -13,6 +13,7 @@ class KeyWinController(BaseController):
 
     def save_key(self, api_key: str):
         try:
+            api_key = self._config_manager.validate_key(api_key)
             self._config_manager.save_and_activate(api_key=api_key)
             self._emit("close_window")
         except ValueError:
