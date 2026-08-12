@@ -5,21 +5,23 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pdf-epub-converter"
 version = "0.1.0"
-description = "Конвертація PDF/EPUB в Markdown для RAG"
+description = "Conversion PDF/EPUB to Markdown for RAG"
 requires-python = ">=3.10"
 dependencies = [
-    "beautifulsoup4>=4.12.3",
-    "lxml>=5.3.0",
-    "ebooklib>=0.18",
-    "markdownify>=0.13.1",
-    "google-genai>=2.10.0",
-    "python-dotenv>=1.0.0",
-    "pyyaml>=6.0.0",
-    "pymupdf>=1.24.0",
+    "beautifulsoup4",
+    "ebooklib",
+    "google-genai",
+    "markdownify",
+    "pdfplumber",
+    "pymupdf4llm",
+    "pyyaml",
+    "requests",
+    "customtkinter",
+    "CTKMessagebox",
+    "python-dotenv"
 ]
-
 [project.scripts]
-convert = "cli.main:main"
+convert = "main:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

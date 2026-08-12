@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -8,11 +9,11 @@ from ebooklib import epub
 from google import genai
 from markdownify import markdownify as md
 
-from cleaner import clean_text
-from config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
-from models import BookFormat
+from config.config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
+from core.cleaner import clean_text
+from core.models import BookFormat
+from core.utils import build_metadata, clean_filename, images_to_md
 from storage.saver import save_all_chapters
-from utils import build_metadata, clean_filename, images_to_md
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +92,7 @@ def _extract_chapter_text(
 
 
 def collect_epub_chapters(
-    *, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int
+    *, book: epub.EpubBook, client: genai.Client, model: str, chapter_min_size: int,callback:Callable=lambda *args, **kwargs:None
 ) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
     # Використовуємо spine_ids, щоб отримати елементи
@@ -101,7 +102,7 @@ def collect_epub_chapters(
     try:
         image_descriptions = (
             images_to_md(
-                client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE
+                file_name=book.title,client=client, model=model, img_dict=img_dict, batch_size=IMG_CHUNK_SIZE,callback=callback
             )
             if img_dict
             else {}
@@ -179,19 +180,24 @@ def replace_images(soup, image_descriptions: dict[str, str]):
 
 
 def epub_to_markdown_pro(
-    *, client: genai.Client, model: str, epub_path: Path, output_dir: Path
+    *,
+    client: genai.Client,
+    model: str,
+    epub_path: Path,
+    output_dir: Path,
+    callback: Callable = lambda *args, **kwargs: None,
 ):
     book = epub.read_epub(epub_path)
     metadata = extract_epub_metadata(book=book, epub_path=epub_path)
     valid_chapters = collect_epub_chapters(
-        book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE
+        book=book, client=client, model=model, chapter_min_size=CHAPTER_MIN_SIZE,callback=callback
     )
     total_chapters = len(valid_chapters)
     save_all_chapters(
-        valid_chapters=valid_chapters, output_dir=output_dir, metadata=metadata
+        valid_chapters=valid_chapters, output_dir=output_dir, metadata=metadata,callback=callback
     )
 
     logger.info("Completed! %s chapters → %s/", total_chapters, output_dir)
     logger.info(
-        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words\n"]
+        "Book: %s | ~%s words", metadata["title"], metadata["estimated_total_words"]
     )

@@ -3,6 +3,7 @@ import json
 import logging
 import re
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
 
-from config import API_DELAY, MAX_API_RETRIES, OUT_OF_LIMIT_DELAY
+from config.config import API_DELAY, MAX_API_RETRIES, OUT_OF_LIMIT_DELAY
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +140,13 @@ def _fetch_img_batch_with_retry(
 
 
 def images_to_md(
-    *, client, model, img_dict: dict[str, bytes], batch_size: int
+    *,
+    file_name:str,
+    client,
+    model,
+    img_dict: dict[str, bytes],
+    batch_size: int,
+    callback: Callable = lambda *args, **kwargs: None,
 ) -> dict[str, str]:
     items = list(img_dict.items())
     images_num = len(items)
@@ -147,6 +154,8 @@ def images_to_md(
 
     for i in range(0, images_num, batch_size):
         batch = items[i : i + batch_size]
+        current = min(i + batch_size, images_num)
+        callback(current=current, total=images_num, text=f"{file_name} images {current}/{images_num}")
         parts = []
         for name, img_data in batch:
             parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpeg"))
