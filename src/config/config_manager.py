@@ -43,9 +43,9 @@ class ConfigManager:
             api_key = self._read_key_from_file()
             if api_key:
                 os.environ[self.api_key_name] = api_key
-                return api_key if self._validate_key(api_key=api_key) else None
+                return api_key
 
-    def _validate_key(self, api_key: str) -> str:
+    def validate_key(self, api_key: str) -> str:
         """
         Verify the key with a real request to Gemini.
         Return api_key:str if is valid or raise ValueError if not.
@@ -85,6 +85,6 @@ class ConfigManager:
         return ""
 
     def save_and_activate(self, api_key: str):
-        api_key = self._validate_key(api_key)
+        api_key = self.validate_key(api_key)
         self._save_key_to_file(api_key)
         os.environ[self.api_key_name] = api_key

@@ -48,9 +48,16 @@ class App(ctk.CTk):
             "info": "Info",
         }.get(msg_type, "Info")
 
-        CTkMessagebox(title=title, message=msg)
+        icon_map = {"error": "cancel", "success": "check", "info": "info"}
+        icon = icon_map.get(msg_type, "info")
+
+        CTkMessagebox(title=title, message=msg, icon=icon)
 
     def _on_start(self):
+        api_key = self._controller.get_api_key()
+        if not api_key:
+            api_key = self.show_key_window()
+
         files = filedialog.askopenfilenames(
             title="Select files",
             initialdir="/",
@@ -63,9 +70,6 @@ class App(ctk.CTk):
         )
         if not files:
             return
-        api_key = self._controller.get_api_key()
-        if not api_key:
-            api_key = self.show_key_window()
 
         self._controller.convert_files(files=files, api_key=api_key)
 
