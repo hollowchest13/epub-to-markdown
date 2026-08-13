@@ -1,11 +1,12 @@
 import logging
 from collections.abc import Callable
+from pathlib import Path
 
-from core.cleaner import clean_text
-from core.utils import Path, collect_chapters_from_text, genai
+from google import genai
+
 from parsers.epub import epub_to_markdown_pro
+from parsers.md import md_parser_pro
 from parsers.pdf import pdf_to_markdown_pro
-from storage.saver import save_all_chapters
 
 logger = logging.getLogger(__name__)
 
@@ -40,16 +41,8 @@ def convert_to_md(
                         callback=callback,
                     )
                 case ".md":
-                    text = file.read_text(encoding="utf-8")
-                    text = clean_text(text=text)
-                    valid_chapters = collect_chapters_from_text(
-                        text=text, chapter_min_size=50
-                    )
-                    metadata = {}
-                    save_all_chapters(
-                        valid_chapters=valid_chapters,
-                        output_dir=output_dir,
-                        metadata=metadata,
+                    md_parser_pro(
+                        md_path=file, output_dir=output_dir, callback=callback
                     )
 
                 case _:
