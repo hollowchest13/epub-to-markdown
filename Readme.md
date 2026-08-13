@@ -16,6 +16,9 @@ bash
 git clone https://github.com/hollowchest13/epub-to-markdown.git
 cd epub-to-markdown
 python -m venv .venv
+## Screenshots
+
+![App screenshot](screenshots/image.png)
 
 # Windows
 .venv\Scripts\activate
