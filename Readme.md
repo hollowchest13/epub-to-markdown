@@ -11,26 +11,29 @@ Automatic fallback to CLI if GUI is unavailable
 Requirements
 Python 3.12+
 Google Gemini API key
-Installation
-bash
+
+# Installation
+
+```bash
 git clone https://github.com/hollowchest13/epub-to-markdown.git
 cd epub-to-markdown
 python -m venv .venv
-## Screenshots
-
-![App screenshot](screenshots/image.png)
+```
 
 # Windows
+
 ```cmd
 .venv\Scripts\activate
+pip install .
 ```
 
 # Linux
+
 ```bash
 source .venv/bin/activate
 pip install .
 ```
-Usage
+# Usage
 
 GUI:
 
@@ -40,12 +43,14 @@ convert
 
 CLI:
 
-
 ```bash
 convert
 convert --dir /path/to/files
 convert --set-key
 ```
+## Screenshots
+
+![App screenshot](screenshots/image.png)
 
 ## Configuration
 
