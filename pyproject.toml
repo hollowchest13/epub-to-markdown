@@ -11,14 +11,14 @@ dependencies = [
     "beautifulsoup4",
     "ebooklib",
     "google-genai",
-    "markdownify",
     "pdfplumber",
     "pymupdf4llm",
     "pyyaml",
     "requests",
     "customtkinter",
     "CTKMessagebox",
-    "python-dotenv"
+    "python-dotenv",
+    "markdownify"
 ]
 [project.scripts]
 convert = "main:main"
