@@ -78,7 +78,7 @@ def _get_entered_key(validator: Callable[[str], str]) -> str:
         try:
             return validator(entered_key)
         except (ConnectionError, TimeoutError) as e:
-            logger.error(f"\nNetwork error: {e}")
+            logger.error("Network error: %s", e)
             print(
                 "Network error. Please check your internet connection and try again.\n"
             )
@@ -112,4 +112,4 @@ def _get_files_cli(book_dir: Path | None) -> list[Path]:
                 continue
             return files
 
-        logger.warning(f"Error: '{book_dir}' is not a valid directory. Try again.")
+        print(f"Error: '{book_dir}' is not a valid directory. Try again.")
