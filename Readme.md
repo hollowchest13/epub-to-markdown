@@ -21,25 +21,31 @@ python -m venv .venv
 ![App screenshot](screenshots/image.png)
 
 # Windows
+```cmd
 .venv\Scripts\activate
+```
 
 # Linux
+```bash
 source .venv/bin/activate
-
 pip install .
+```
 Usage
 
 GUI:
 
-bash
+```bash
 convert
+```
 
 CLI:
 
-bash
+
+```bash
 convert
 convert --dir /path/to/files
 convert --set-key
+```
 
 ## Configuration
 
