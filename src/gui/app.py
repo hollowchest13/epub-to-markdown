@@ -3,6 +3,7 @@ from tkinter import LEFT, filedialog
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 
+from config.config import BASE_DIR
 from controllers.app_controller import AppController
 from controllers.key_win_controller import KeyWinController
 from gui.key_dialog import KeyWindow
@@ -57,6 +58,15 @@ class App(ctk.CTk):
         state = "disabled" if locked else "normal"
         self.start_btn.configure(state=state)
         self.change_key_btn.configure(state=state)
+        if locked:
+            self.progress.configure(mode="indeterminate")
+            self.progress.start()
+            self.progress_label.configure(text="Processing...")
+        else:
+            self.progress.stop()
+            self.progress.configure(mode="determinate")
+            self.progress.set(1)
+            self.progress_label.configure(text="Done")
 
     def _on_start(self):
         api_key = self._controller.get_api_key()
@@ -65,7 +75,7 @@ class App(ctk.CTk):
 
         files = filedialog.askopenfilenames(
             title="Select files",
-            initialdir="/",
+            initialdir=BASE_DIR,
             filetypes=[
                 ("Documents", "*.pdf *.epub *.md"),
                 ("PDF files", "*.pdf"),
@@ -125,6 +135,8 @@ class App(ctk.CTk):
         self.after(0, lambda: self._apply_ui_update(value, text))
 
     def _apply_ui_update(self, progress_value: float, text: str):
-
+        if self.progress.cget("mode") == "indeterminate":
+            self.progress.stop()
+            self.progress.configure(mode="determinate")
         self.progress.set(progress_value)
         self.progress_label.configure(text=text)
