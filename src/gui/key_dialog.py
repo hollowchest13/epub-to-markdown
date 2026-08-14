@@ -1,10 +1,8 @@
-from collections.abc import Callable
-
 import customtkinter as ctk
 
 
 class KeyWindow(ctk.CTkToplevel):
-    def __init__(self, master, *, controller, on_save: Callable | None = None):
+    def __init__(self, master, *, controller):
         super().__init__(master)
         self.title("Enter gemini API key")
         self.geometry("350x180")
@@ -23,11 +21,9 @@ class KeyWindow(ctk.CTkToplevel):
         self.entry.pack(pady=5)
 
         self.btn = ctk.CTkButton(self, text="Save and continue", command=self._on_save)
-        self._on_save_callback = on_save
         self.btn.pack(pady=15)
 
     def _on_save(self):
         self._controller.save_key(api_key=self.entry.get().strip())
+        self.grab_release()
         self.destroy()
-        if self._on_save_callback:
-            self._on_save_callback()

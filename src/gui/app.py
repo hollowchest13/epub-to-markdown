@@ -53,7 +53,17 @@ class App(ctk.CTk):
         icon_map = {"error": "cancel", "success": "check", "info": "info"}
         icon = icon_map.get(msg_type, "info")
 
-        CTkMessagebox(title=title, message=msg, icon=icon)
+        def _show():
+            master = (
+                self.key_window
+                if hasattr(self, "key_window") and self.key_window.winfo_exists()
+                else self
+            )
+            CTkMessagebox(
+                master=master, title=title, message=msg, icon=icon, option_1="OK"
+            )
+
+        self.after(200, _show)
 
     def _set_ui_locked(self, locked: bool):
         state = "disabled" if locked else "normal"
@@ -98,9 +108,7 @@ class App(ctk.CTk):
         if hasattr(self, "key_window") and self.key_window.winfo_exists():
             self.key_window.focus()
             return
-        self.key_window = KeyWindow(
-            self, controller=self._key_win_controller, on_save=on_save
-        )
+        self.key_window = KeyWindow(self, controller=self._key_win_controller)
         self.key_window.grab_set()
 
     def _pack_widgets(self):
