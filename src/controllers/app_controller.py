@@ -24,7 +24,13 @@ class AppController(BaseController):
     def gui_callback(self, callback: Callable):
         self._gui_callback = callback
 
-    def convert_files(self, *, files: tuple[str, ...], api_key: str | None):
+    def convert_files(
+        self,
+        *,
+        files: tuple[str, ...],
+        api_key: str | None,
+        on_done: Callable | None = None,
+    ):
         if not api_key:
             return
         client = genai.Client(api_key=api_key)
@@ -37,11 +43,19 @@ class AppController(BaseController):
                 target_dir=target_dir,
                 model=MODEL_VERSION,
                 callback=self.gui_callback,
-            )
+            ),
+            on_done=on_done,
         )
 
-    def _run_long_process(self, func: Callable):
-        threading.Thread(target=func, daemon=True).start()
+    def _run_long_process(self, func: Callable, on_done: Callable | None = None):
+        def wrapper():
+            try:
+                func()
+            finally:
+                if on_done:
+                    on_done()
+
+        threading.Thread(target=wrapper, daemon=True).start()
 
     def get_api_key(self):
         return self.config_manager.get_api_key()

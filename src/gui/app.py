@@ -53,6 +53,11 @@ class App(ctk.CTk):
 
         CTkMessagebox(title=title, message=msg, icon=icon)
 
+    def _set_ui_locked(self, locked: bool):
+        state = "disabled" if locked else "normal"
+        self.start_btn.configure(state=state)
+        self.change_key_btn.configure(state=state)
+
     def _on_start(self):
         api_key = self._controller.get_api_key()
         if not api_key:
@@ -70,8 +75,12 @@ class App(ctk.CTk):
         )
         if not files:
             return
-
-        self._controller.convert_files(files=files, api_key=api_key)
+        self._set_ui_locked(True)
+        self._controller.convert_files(
+            files=files,
+            api_key=api_key,
+            on_done=lambda: self.after(0, self._set_ui_locked, False),
+        )
 
     def show_key_window(self):
         if hasattr(self, "key_window") and self.key_window.winfo_exists():
