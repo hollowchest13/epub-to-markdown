@@ -71,6 +71,8 @@ def call_gemini_api(
 
         except ClientError as e:
             logger.error(f"Attempt {attempt + 1} unsuccessful: {e}")
+            if "400" in str(e) or "INVALID_ARGUMENT" in str(e):
+                raise 
             if attempt == max_retries - 1:
                 raise
             time.sleep(OUT_OF_LIMIT_DELAY)
