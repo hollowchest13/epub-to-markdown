@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from tkinter import LEFT, filedialog
 
 import customtkinter as ctk
@@ -71,7 +72,8 @@ class App(ctk.CTk):
     def _on_start(self):
         api_key = self._controller.get_api_key()
         if not api_key:
-            api_key = self.show_key_window()
+            api_key = self.show_key_window(on_save=self._on_start)
+            return
 
         files = filedialog.askopenfilenames(
             title="Select files",
@@ -92,11 +94,14 @@ class App(ctk.CTk):
             on_done=lambda: self.after(0, self._set_ui_locked, False),
         )
 
-    def show_key_window(self):
+    def show_key_window(self, on_save: Callable | None = None):
         if hasattr(self, "key_window") and self.key_window.winfo_exists():
             self.key_window.focus()
             return
-        self.key_window = KeyWindow(self, controller=self._key_win_controller)
+        self.key_window = KeyWindow(
+            self, controller=self._key_win_controller, on_save=on_save
+        )
+        self.key_window.grab_set()
 
     def _pack_widgets(self):
         PADDING = 5

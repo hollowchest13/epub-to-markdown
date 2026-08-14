@@ -1,14 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+import sys
+from PyInstaller.utils.hooks import collect_data_files
+
+# Збираємо всі необхідні дані/ресурси для pymupdf
+pymupdf_datas = collect_data_files('pymupdf')
+
 a = Analysis(
-    ['src/cli/main.py'],
+    ['src/main.py'],
     pathex=[],
     binaries=[],
-    datas=[
-        ('.venv/lib/python3.12/site-packages/pymupdf/layout/resources', 'pymupdf/layout/resources'),
-        ('.venv/lib/python3.12/site-packages/pymupdf4llm/ocr/ocr_decision_model.onnx', 'pymupdf4llm/ocr/'),
-    ],
-    hiddenimports=[],
+    datas=pymupdf_datas,  # <--- Тепер змінна визначена
+    hiddenimports=['pymupdf', 'pymupdf4llm'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -23,17 +26,18 @@ exe = EXE(
     a.scripts,
     a.binaries,
     a.datas,
-    name='books_to_markdown',
+    [],
+    name='main',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,  # Змініть на False, коли захочете приховати консоль
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=[],
-    exclude_binaries=False,
 )
