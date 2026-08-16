@@ -100,7 +100,6 @@ def collect_epub_chapters(
     callback: Callable = lambda *args, **kwargs: None,
 ) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
-    # Використовуємо spine_ids, щоб отримати елементи
     ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
     img_dict = get_epub_images(book=book)
 

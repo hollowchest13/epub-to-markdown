@@ -21,7 +21,7 @@ def convert_to_md(
 ):
     for file in files:
         file_suffix = file.suffix
-        output_dir: Path = target_dir / "output" / file.stem
+        output_dir: Path = target_dir / file.stem
         try:
             match file_suffix:
                 case ".epub":

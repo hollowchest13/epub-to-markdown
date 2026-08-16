@@ -66,13 +66,13 @@ def call_gemini_api(
             if not expect_json:
                 return text
             clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-            logger.info(f"Відповідь {len(clean)} символів")
+            logger.info(f"Answer {len(clean)} symbols")
             return json.loads(clean)
 
         except ClientError as e:
             logger.error(f"Attempt {attempt + 1} unsuccessful: {e}")
-            if "400" in str(e) or "INVALID_ARGUMENT" in str(e):
-                raise 
+            if e.code == 400:
+                raise
             if attempt == max_retries - 1:
                 raise
             time.sleep(OUT_OF_LIMIT_DELAY)
@@ -157,7 +157,6 @@ def images_to_md(
     for i in range(0, images_num, batch_size):
         batch = items[i : i + batch_size]
         current = min(i + batch_size, images_num)
-        callback(current=current, total=images_num, text=f"{file_name} images {current}/{images_num}")
         parts = []
         for name, img_data in batch:
             parts.append(types.Part.from_bytes(data=img_data, mime_type="image/jpeg"))
@@ -202,9 +201,10 @@ def images_to_md(
         for (name, _), desc in zip(batch, result):
             if desc is not None:
                 all_results[name] = desc
+        callback(current=current, total=images_num, text=f"{file_name} images {current}/{images_num}")
 
         logger.info(
-            "Processed %s з %s зображень", min(i + batch_size, images_num), images_num
+            "Processed %s з %s images", min(i + batch_size, images_num), images_num
         )
         time.sleep(API_DELAY)
 
