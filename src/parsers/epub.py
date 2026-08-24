@@ -13,6 +13,7 @@ from config.config import CHAPTER_MIN_SIZE, IMG_CHUNK_SIZE
 from core.cleaner import clean_text
 from core.models import BookFormat
 from core.utils import build_metadata, clean_filename, images_to_md
+from errors.api_errors import RateLimitExceeded
 from storage.saver import save_all_chapters
 
 logger = logging.getLogger(__name__)
@@ -97,11 +98,13 @@ def collect_epub_chapters(
     client: genai.Client,
     model: str,
     chapter_min_size: int,
+    on_rate_limit: Callable = lambda *args, **kwargs,: None,
     callback: Callable = lambda *args, **kwargs: None,
 ) -> list[tuple[str, str]]:
     spine_ids = [item_id for item_id, _ in book.spine]
     ordered_items = [book.get_item_with_id(item_id) for item_id in spine_ids]
     img_dict = get_epub_images(book=book)
+    image_descriptions = {}
 
     try:
         image_descriptions = (
@@ -116,11 +119,13 @@ def collect_epub_chapters(
             if img_dict
             else {}
         )
+    except RateLimitExceeded:
+        on_rate_limit()
+
     except Exception:
         logger.exception(
             "Failed to generate image descriptions; continuing without them"
         )
-        image_descriptions = {}
 
     valid_chapters = []
 
@@ -194,6 +199,7 @@ def epub_to_markdown_pro(
     model: str,
     epub_path: Path,
     output_dir: Path,
+    on_rate_limit: Callable = lambda *args, **kwargs: None,
     callback: Callable = lambda *args, **kwargs: None,
 ):
     book = epub.read_epub(epub_path)
@@ -203,6 +209,7 @@ def epub_to_markdown_pro(
         client=client,
         model=model,
         chapter_min_size=CHAPTER_MIN_SIZE,
+        on_rate_limit=on_rate_limit,
         callback=callback,
     )
     total_chapters = len(valid_chapters)
