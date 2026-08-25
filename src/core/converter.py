@@ -18,7 +18,7 @@ def convert_to_md(
     target_dir: Path,
     model: str,
     callback: Callable = lambda *args, **kwargs: None,
-    on_rate_limit: Callable,
+    on_rate_limit: Callable | None = None,
 ):
     for file in files:
         file_suffix = file.suffix

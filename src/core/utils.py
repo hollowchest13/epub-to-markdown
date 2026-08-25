@@ -87,8 +87,8 @@ def call_gemini_api(
 
 def fetch_batch_with_retry(
     *,
-    client,
-    model,
+    client: genai.Client,
+    model: str,
     contents: list,
     max_retries: int,
     expect_json: bool = False,
@@ -192,7 +192,8 @@ def images_to_md(
             "1. DATA TABLE: Convert its full content strictly into Markdown table format.\n"
             "2. GRAPH (bar, line, pie, etc.): Provide a concise description (up to 100 words) specifying its type, main trend, and key values.\n"
             "3. DIAGRAM/SCHEME (flowchart, architecture, mind map): Provide a description (up to 100 words) explaining what it shows, its main elements, connections, and key conclusion.\n"
-            "4. DECORATIVE IMAGE (photo, illustration, spacer without data): Return exactly null.\n\n"
+            "4. FORMULA/EQUATION: Convert the formula strictly into LaTeX format (e.g., using $...$ or $$...$$).\n"
+            "5. DECORATIVE IMAGE (photo, illustration, spacer without data): Return exactly null.\n\n"
             f"IMPORTANT: There are exactly {len(batch)} images in this request. "
             f"Return a JSON array with EXACTLY {len(batch)} elements, one per image, "
             "in the same order as the images were provided. Never omit an element — "
@@ -200,7 +201,7 @@ def images_to_md(
             "Constraints:\n"
             "- Language: Return all text, descriptions, and tables in the original document's language.\n"
             "- Output Format: Return ONLY a single valid raw JSON array, exactly like this: "
-            '["markdown_table_or_description", null, "another description"].\n'
+            '["markdown_table_or_description", null, "$E=mc^2$"].\n'
             "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON array."
         )
         contents.append(prompt_text)
@@ -212,6 +213,7 @@ def images_to_md(
             batch_size=len(batch),
             batch_index=i,
             max_retries=MAX_API_RETRIES,
+            expect_json=True,
         )
 
         if result is None:

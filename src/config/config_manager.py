@@ -33,7 +33,7 @@ class ConfigManager:
         self.base_dir = base_dir
         self.env_path = self.base_dir / filename
         self.model = model
-        self.api_key_name = "GEMINI_API"
+        self.api_key_name = "GEMINI_API_KEY"
 
     def get_api_key(self) -> str | None:
         """Main method: checks the key, prompts for input if necessary, and saves."""
@@ -77,7 +77,7 @@ class ConfigManager:
             with open(self.env_path, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.startswith(f"{self.api_key_name}="):
-                        return line.split("=", 1)[1].strip()
+                        return line.split("=", 1)[1].strip().strip("\"'")
         except OSError as e:
             logger.warning(
                 "Could not read configuration file. %s: %s", self.env_path, e
