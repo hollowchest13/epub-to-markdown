@@ -13,7 +13,7 @@ from core.converter import convert_to_md
 class AppController(BaseController):
     def __init__(self, *, config_manager: ConfigManager):
         super().__init__()
-
+        self._rate_limit_event = threading.Event()
         self.config_manager = config_manager
 
     @property
@@ -33,6 +33,7 @@ class AppController(BaseController):
     ):
         if not api_key:
             return
+        self._rate_limit_event.clear()
         client = genai.Client(api_key=api_key)
         target_dir = BASE_DIR / "output"
         file_list = list(map(Path, files))
@@ -43,9 +44,16 @@ class AppController(BaseController):
                 target_dir=target_dir,
                 model=MODEL_VERSION,
                 callback=self.gui_callback,
+                on_rate_limit=self._on_rate_limit,
             ),
             on_done=on_done,
         )
+
+    def _on_rate_limit(self):
+        if not self._rate_limit_event.is_set():
+            self._rate_limit_event.set()
+            msg = ("API rate limit exceeded. Falling back to local processing...",)
+            self._emit(event="show_msg", msg=msg)
 
     def _run_long_process(self, func: Callable, on_done: Callable | None = None):
         def wrapper():

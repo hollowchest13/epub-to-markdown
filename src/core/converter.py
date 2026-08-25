@@ -18,6 +18,7 @@ def convert_to_md(
     target_dir: Path,
     model: str,
     callback: Callable = lambda *args, **kwargs: None,
+    on_rate_limit: Callable | None = None,
 ):
     for file in files:
         file_suffix = file.suffix
@@ -31,6 +32,7 @@ def convert_to_md(
                         client=client,
                         model=model,
                         callback=callback,
+                        on_rate_limit=on_rate_limit,
                     )
                 case ".pdf":
                     pdf_to_markdown_pro(
@@ -39,6 +41,7 @@ def convert_to_md(
                         client=client,
                         model=model,
                         callback=callback,
+                        on_rate_limit=on_rate_limit,
                     )
                 case ".md":
                     md_parser_pro(

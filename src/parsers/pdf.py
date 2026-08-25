@@ -19,10 +19,11 @@ from core.cleaner import clean_text
 from core.models import BookFormat
 from core.utils import (
     build_metadata,
-    call_gemini_api,
     clean_filename,
     collect_chapters_from_text,
+    fetch_batch_with_retry,
 )
+from errors.api_errors import RateLimitExceeded
 from storage.saver import save_all_chapters
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ def _get_chunk_text(
     pdf_bytes: bytes,
     max_retries: int,
     method: str,
+    on_rate_limit: Callable = lambda *args, **kwargs: None,
 ) -> str:
     if method == "gemini":
         try:
@@ -61,21 +63,30 @@ def _get_chunk_text(
                 types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
                 prompt_text,
             ]
-            chunk_text = call_gemini_api(
+            chunk_text = fetch_batch_with_retry(
                 client=client,
                 model=model,
-                max_retries=max_retries,
                 contents=contents,
+                max_retries=max_retries,
                 expect_json=False,
             )
-            if len(chunk_text) >= MIN_CHUNK_LENGTH:
-                return chunk_text
-            logger.warning(
-                "Result too short (%s characters). Falling back to local",
-                len(chunk_text),
-            )
-        except Exception:
-            logger.exception("Gemini API error: %s. Falling back to local conversion.")
+
+            if chunk_text is not None:
+                text_str = str(chunk_text)
+                if len(text_str) >= MIN_CHUNK_LENGTH:
+                    return text_str
+
+                logger.warning(
+                    "Result too short (%s characters). Falling back to local",
+                    len(text_str),
+                )
+            else:
+                logger.warning("Result is None. Falling back to local conversion.")
+
+        except RateLimitExceeded:
+            on_rate_limit()
+        except Exception as e:  # noqa: BLE001
+            logger.error("Gemini API error: %s. Falling back to local conversion.", e)
 
     chunk_text = _local_conversion(pdf_bytes=pdf_bytes)
     logger.info("Local result has %s characters.", len(chunk_text))
@@ -97,17 +108,18 @@ def pdf_to_markdown_pro(
     output_dir,
     client: genai.Client,
     model: str,
+    on_rate_limit: Callable = lambda *args, **kwargs: None,
     callback: Callable = lambda *args, **kwargs: None,
 ):
     prompt_text = """Task: Extract the structural and textual content from the provided material and represent it in Markdown format for personal analysis and indexing.
-            Guidelines:
-            Process the provided text fragment in detail, maintaining the original structure, headings, and hierarchy.
-            Use ONLY the provided source material. Ensure high fidelity to the original text; if a word is unclear, maintain its visual representation.
-            TABLES: Format all data tables into standard Markdown tables.
-            VISUALS: Provide a concise analytical description of any graphs, diagrams, or schemes, focusing on their main elements and logical connections (up to 100 words per item).
-            LANGUAGE: Keep the output strictly in the original document's language.
-            DATA CLEANING: Fix minor OCR artifacts (e.g., broken words, unnecessary line breaks) to improve readability.
-            OUTPUT: Return the output as raw Markdown content. Focus on accuracy and technical formatting."""
+        Guidelines:
+        Process the provided text fragment in detail, maintaining the original structure, headings, and hierarchy.
+        Use ONLY the provided source material. Ensure high fidelity to the original text; if a word is unclear, maintain its visual representation.
+        TABLES: Format all data tables into standard Markdown tables.
+        VISUALS: Provide a concise analytical description of any graphs, diagrams, or schemes, focusing on their main elements and logical connections (up to 100 words per item).
+        LANGUAGE: Keep the output strictly in the original document's language.
+        DATA CLEANING: Fix minor OCR artifacts (e.g., broken words, unnecessary line breaks) to improve readability.
+        OUTPUT: Return the output as raw Markdown content. Focus on accuracy and technical formatting."""
 
     with fitz.open(str(pdf_path)) as doc:
         metadata = extract_pdf_metadata(doc, pdf_path=pdf_path)
@@ -129,14 +141,17 @@ def pdf_to_markdown_pro(
             pdf_bytes=batch_bytes,
             max_retries=MAX_API_RETRIES,
             method=method,
+            on_rate_limit=on_rate_limit,
         )
-        full_text += (chunk_text or "").strip() + "\n\n"
+        safe_chunk = chunk_text or ""
+        full_text += safe_chunk.strip() + "\n\n"
         processed_pages += len(page_nums)
         callback(
             current=processed_pages,
             total=total_pages,
             text=f"{pdf_path.stem} page {processed_pages}/{total_pages}",
         )
+
         logger.info(
             "%s | Batch: %03d/%03d | method: %s | pages: %d | words: %d \n",
             metadata["title"][:30],
@@ -144,7 +159,7 @@ def pdf_to_markdown_pro(
             len(batches),
             method,
             len(page_nums),
-            len(chunk_text.split()),
+            len(safe_chunk.split()),
         )
         time.sleep(API_DELAY)
 

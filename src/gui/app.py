@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from tkinter import LEFT, filedialog
 
 import customtkinter as ctk
@@ -25,6 +24,7 @@ class App(ctk.CTk):
         self._controller.gui_callback = self.update_progress_ui
         self._key_win_controller = key_win_controller
         self._key_win_controller.on(event="show_msg", callback=self.show_msg)
+        self._controller.on(event="show_msg", callback=self.show_msg)
 
         self.start_btn = ctk.CTkButton(
             self.controls_frame,
@@ -98,7 +98,7 @@ class App(ctk.CTk):
 
         if not files:
             return
-        
+
         self._set_ui_locked(True)
         self._controller.convert_files(
             files=files,
@@ -106,11 +106,13 @@ class App(ctk.CTk):
             on_done=lambda: self.after(0, self._set_ui_locked, False),
         )
 
-    def show_key_window(self, on_save=lambda *args,**kwargs:None):
+    def show_key_window(self, on_save=lambda *args, **kwargs: None):
         if hasattr(self, "key_window") and self.key_window.winfo_exists():
             self.key_window.focus()
             return
-        self.key_window = KeyWindow(self, controller=self._key_win_controller,on_save=on_save)
+        self.key_window = KeyWindow(
+            self, controller=self._key_win_controller, on_save=on_save
+        )
         self.key_window.grab_set()
 
     def _pack_widgets(self):
