@@ -168,6 +168,7 @@ def images_to_md(
     file_name: str,
     client,
     model,
+    prompt_text: str,
     img_dict: dict[str, bytes],
     batch_size: int,
     callback: Callable = lambda *args, **kwargs: None,
@@ -185,25 +186,6 @@ def images_to_md(
                 types.Part.from_bytes(data=img_data, mime_type="image/jpeg")
             )
 
-        prompt_text = (
-            "Task: Analyze EACH provided image separately, in the exact order they are given. "
-            "Do not skip, merge, or reorder images. "
-            "Classify and process each image according to these rules:\n"
-            "1. DATA TABLE: Convert its full content strictly into Markdown table format.\n"
-            "2. GRAPH (bar, line, pie, etc.): Provide a concise description (up to 100 words) specifying its type, main trend, and key values.\n"
-            "3. DIAGRAM/SCHEME (flowchart, architecture, mind map): Provide a description (up to 100 words) explaining what it shows, its main elements, connections, and key conclusion.\n"
-            "4. FORMULA/EQUATION: Convert the formula strictly into LaTeX format (e.g., using $...$ or $$...$$).\n"
-            "5. DECORATIVE IMAGE (photo, illustration, spacer without data): Return exactly null.\n\n"
-            f"IMPORTANT: There are exactly {len(batch)} images in this request. "
-            f"Return a JSON array with EXACTLY {len(batch)} elements, one per image, "
-            "in the same order as the images were provided. Never omit an element — "
-            "use null for decorative images instead of skipping them.\n\n"
-            "Constraints:\n"
-            "- Language: Return all text, descriptions, and tables in the original document's language.\n"
-            "- Output Format: Return ONLY a single valid raw JSON array, exactly like this: "
-            '["markdown_table_or_description", null, "$E=mc^2$"].\n'
-            "- CRITICAL: Do not include any introductory text, explanations, notes, or markdown code block fences (like ```json or ```). Only the raw JSON array."
-        )
         contents.append(prompt_text)
 
         result = fetch_batch_with_retry(
@@ -259,3 +241,16 @@ def collect_chapters_from_text(*, text: str, chapter_min_size) -> list[tuple[str
     if not chapters and len(text) > chapter_min_size:
         return [("Full Content", text)]
     return chapters
+
+
+def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, str]:
+    try:
+        if not json_file.exists():
+            json_file.write_text(
+                json.dumps(default_data, indent=4, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        return json.loads(json_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning("Could not read settings file: %s", e)
+    return default_data

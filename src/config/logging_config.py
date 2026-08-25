@@ -1,5 +1,6 @@
 import logging
 from logging.handlers import RotatingFileHandler
+
 from config.config import BASE_DIR
 
 
@@ -7,7 +8,7 @@ def setup_logging(mode: str, level: int = logging.INFO):
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.handlers.clear()
-    
+
     if mode == "cli":
         handler = logging.StreamHandler()
     else:
@@ -19,5 +20,5 @@ def setup_logging(mode: str, level: int = logging.INFO):
         handler.setFormatter(
             logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
-    
+
     root_logger.addHandler(handler)
