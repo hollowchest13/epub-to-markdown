@@ -12,6 +12,7 @@ from config.config_manager import ConfigManager
 from config.logging_config import setup_logging
 from core.utils import get_json_data
 from gui.run_gui import run_gui
+from server.run_api import run_api
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +30,13 @@ def main():
         model=MODEL_VERSION,
         default_prompts=DEFAULT_PROMPTS,
     )
-    if mode == "cli":
-        run_cli(config_manager)
-    else:
-        run_gui(config_manager)
+    match mode:
+        case "cli":
+            run_cli(config_manager)
+        case "gui":
+            run_gui(config_manager)
+        case "api":
+            run_api(config_manager)
 
 
 if __name__ == "__main__":
