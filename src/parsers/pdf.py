@@ -108,18 +108,10 @@ def pdf_to_markdown_pro(
     output_dir,
     client: genai.Client,
     model: str,
+    prompt_text: str,
     on_rate_limit: Callable = lambda *args, **kwargs: None,
     callback: Callable = lambda *args, **kwargs: None,
 ):
-    prompt_text = """Task: Extract the structural and textual content from the provided material and represent it in Markdown format for personal analysis and indexing.
-        Guidelines:
-        Process the provided text fragment in detail, maintaining the original structure, headings, and hierarchy.
-        Use ONLY the provided source material. Ensure high fidelity to the original text; if a word is unclear, maintain its visual representation.
-        TABLES: Format all data tables into standard Markdown tables.
-        VISUALS: Provide a concise analytical description of any graphs, diagrams, or schemes, focusing on their main elements and logical connections (up to 100 words per item).
-        LANGUAGE: Keep the output strictly in the original document's language.
-        DATA CLEANING: Fix minor OCR artifacts (e.g., broken words, unnecessary line breaks) to improve readability.
-        OUTPUT: Return the output as raw Markdown content. Focus on accuracy and technical formatting."""
 
     with fitz.open(str(pdf_path)) as doc:
         metadata = extract_pdf_metadata(doc, pdf_path=pdf_path)

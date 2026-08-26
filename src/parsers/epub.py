@@ -41,6 +41,9 @@ def extract_epub_metadata(book: epub.EpubBook, *, epub_path: Path):
                 results.append(v)
         return results
 
+    raw_description = first("description")
+    cleaned_description = clean_text(raw_description) if raw_description else None
+
     # Page count (number of spine documents as an approximate estimate)
     spine_ids = [item_id for item_id, _ in book.spine]
     total_spine_items = len(spine_ids)
@@ -61,7 +64,7 @@ def extract_epub_metadata(book: epub.EpubBook, *, epub_path: Path):
             "language": first("language"),
             "identifier": first("identifier"),
             "rights": first("rights"),
-            "description": first("description"),
+            "description": cleaned_description,
             "subjects": all_values("subject"),
             "total_spine_items": total_spine_items,
             "estimated_total_words": total_words,
@@ -97,6 +100,7 @@ def collect_epub_chapters(
     book: epub.EpubBook,
     client: genai.Client,
     model: str,
+    prompt_text: str,
     chapter_min_size: int,
     on_rate_limit: Callable = lambda *args, **kwargs,: None,
     callback: Callable = lambda *args, **kwargs: None,
@@ -113,6 +117,7 @@ def collect_epub_chapters(
                 client=client,
                 model=model,
                 img_dict=img_dict,
+                prompt_text=prompt_text,
                 batch_size=IMG_CHUNK_SIZE,
                 callback=callback,
             )
@@ -197,6 +202,7 @@ def epub_to_markdown_pro(
     *,
     client: genai.Client,
     model: str,
+    prompt_text: str,
     epub_path: Path,
     output_dir: Path,
     on_rate_limit: Callable = lambda *args, **kwargs: None,
@@ -208,6 +214,7 @@ def epub_to_markdown_pro(
         book=book,
         client=client,
         model=model,
+        prompt_text=prompt_text,
         chapter_min_size=CHAPTER_MIN_SIZE,
         on_rate_limit=on_rate_limit,
         callback=callback,

@@ -69,6 +69,3 @@ On first launch the app will ask for your Gemini API key and save it to .env.
 Use Case
 
 Designed for preparing book content for LLM fine-tuning and RAG systems — output is clean, structured Markdown split by chapter.
-
-## TODO
-- [ ] UI blocking during long operations
