@@ -17,7 +17,7 @@ _PATTERNS = [
     (re.compile(r"\(.*?\.html#filepos\d+\)"), ""),
     (re.compile(r"!\[.*?\]\(images/.*?\)"), ""),
     (re.compile(r"\[\d+\]"), ""),
-    (re.compile(r"\(\#[a-z0-9]+-tbl-\d+\)"), ""),
+    (re.compile(r"\(\#[^)]+\)"), ""),
     (re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>"), ""),
     (re.compile(r"\n{3,}"), "\n\n"),
     (re.compile(r"\([^)]*\.html#[^)]+\)"), ""),

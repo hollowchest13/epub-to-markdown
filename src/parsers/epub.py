@@ -41,6 +41,9 @@ def extract_epub_metadata(book: epub.EpubBook, *, epub_path: Path):
                 results.append(v)
         return results
 
+    raw_description = first("description")
+    cleaned_description = clean_text(raw_description) if raw_description else None
+
     # Page count (number of spine documents as an approximate estimate)
     spine_ids = [item_id for item_id, _ in book.spine]
     total_spine_items = len(spine_ids)
@@ -61,7 +64,7 @@ def extract_epub_metadata(book: epub.EpubBook, *, epub_path: Path):
             "language": first("language"),
             "identifier": first("identifier"),
             "rights": first("rights"),
-            "description": first("description"),
+            "description": cleaned_description,
             "subjects": all_values("subject"),
             "total_spine_items": total_spine_items,
             "estimated_total_words": total_words,
