@@ -38,7 +38,14 @@ def run_cli(config_manager: ConfigManager):
         return
 
     client = genai.Client(api_key=gemini_api_key)
-    convert_to_md(files, client=client, model=MODEL_VERSION, target_dir=base_dir)
+    prompt_dict = config_manager.get_prompt_dict()
+    convert_to_md(
+        files,
+        client=client,
+        model=MODEL_VERSION,
+        target_dir=base_dir,
+        prompt_dict=prompt_dict,
+    )
 
 
 def _handle_set_key(config_manager: ConfigManager) -> None:

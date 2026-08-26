@@ -104,7 +104,7 @@ def fetch_batch_with_retry(
                 expect_json=expect_json,
             )
         except RateLimitExceeded as e:
-            wait_time = 2 ** (attempt - 1) * 5  # Наприклад: 5с, 10с, 20с...
+            wait_time = 2 ** (attempt - 1) * 5
             logger.warning(
                 "Attempt %s/%s: Rate limit hit, batch %s. Waiting %ss. Error: %s",
                 attempt,
@@ -119,9 +119,7 @@ def fetch_batch_with_retry(
             continue
 
         except Exception as e:  # noqa: BLE001
-            wait_time = (
-                2 ** (attempt - 1) * 3
-            )  # Трохи коротша затримка для звичайних помилок
+            wait_time = 2 ** (attempt - 1) * 3
             logger.warning(
                 "Attempt %s/%s: API error: %s, batch %s. Waiting %ss.",
                 attempt,
@@ -135,29 +133,40 @@ def fetch_batch_with_retry(
             time.sleep(wait_time)
             continue
 
-        if not isinstance(response, list):
-            logger.warning(
-                "Attempt %s/%s: expected list, got %s. Batch %s.",
-                attempt,
-                max_retries,
-                type(response),
-                batch_index,
-            )
-            time.sleep(API_DELAY)
-            continue
+        if expect_json:
+            if not isinstance(response, list):
+                logger.warning(
+                    "Attempt %s/%s: expected list, got %s. Batch %s.",
+                    attempt,
+                    max_retries,
+                    type(response),
+                    batch_index,
+                )
+                time.sleep(API_DELAY)
+                continue
 
-        if len(response) != batch_size:
-            logger.warning(
-                "Attempt %s/%s: response length %s != batch size %s. Batch %s.",
-                attempt,
-                max_retries,
-                len(response),
-                batch_size,
-                batch_index,
-            )
-            time.sleep(API_DELAY)
-            continue
-
+            if batch_size is not None and len(response) != batch_size:
+                logger.warning(
+                    "Attempt %s/%s: response length %s != batch size %s. Batch %s.",
+                    attempt,
+                    max_retries,
+                    len(response),
+                    batch_size,
+                    batch_index,
+                )
+                time.sleep(API_DELAY)
+                continue
+        else:
+            if not isinstance(response, str):
+                logger.warning(
+                    "Attempt %s/%s: expected str, got %s. Batch %s.",
+                    attempt,
+                    max_retries,
+                    type(response),
+                    batch_index,
+                )
+                time.sleep(API_DELAY)
+                continue
         return response
 
     return None
@@ -186,7 +195,9 @@ def images_to_md(
                 types.Part.from_bytes(data=img_data, mime_type="image/jpeg")
             )
 
-        contents.append(prompt_text)
+        formated_prompt_text = prompt_text.format(batch_size)
+
+        contents.append(formated_prompt_text)
 
         result = fetch_batch_with_retry(
             client=client,

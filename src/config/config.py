@@ -1,7 +1,6 @@
 import sys
+from enum import StrEnum
 from pathlib import Path
-
-import StrEnum
 
 IMG_CHUNK_SIZE = 15
 API_DELAY = 6

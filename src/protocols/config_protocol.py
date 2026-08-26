@@ -2,6 +2,8 @@
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from config.config import PromptType
+
 
 @runtime_checkable
 class ConfigProtocol(Protocol):
@@ -13,6 +15,6 @@ class ConfigProtocol(Protocol):
     @property
     def model(self) -> str: ...
 
-    def get_prompt_dict(self) -> dict: ...
+    def get_prompt_dict(self) -> dict[PromptType, str]: ...
 
     def get_api_key(self) -> str | None: ...

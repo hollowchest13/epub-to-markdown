@@ -20,7 +20,7 @@ def convert_to_md(
     model: str,
     prompt_dict: dict,
     callback: Callable = lambda *args, **kwargs: None,
-    on_rate_limit: Callable | None = None,
+    on_rate_limit: Callable = lambda *args, **kwargs: None,
 ):
     for file in files:
         file_suffix = file.suffix
