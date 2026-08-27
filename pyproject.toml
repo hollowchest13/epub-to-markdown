@@ -7,18 +7,23 @@ name = "pdf-epub-converter"
 version = "0.1.0"
 description = "Conversion PDF/EPUB to Markdown for RAG"
 requires-python = ">=3.10"
+
 dependencies = [
-    "beautifulsoup4",
-    "ebooklib",
-    "google-genai",
-    "pymupdf4llm",
-    "pyyaml",
-    "requests",
-    "customtkinter",
-    "CTKMessagebox",
-    "python-dotenv",
-    "markdownify"
+    "beautifulsoup4>=4.12.0",
+    "ebooklib>=0.18",
+    "google-genai>=2.20.0",
+    "pymupdf4llm>=0.0.17",
+    "pyyaml>=6.0",
+    "requests>=2.31.0",
+    "customtkinter>=5.2.0",
+    "CTKMessagebox>=2.0",
+    "python-dotenv>=1.2.3",
+    "markdownify>=0.11.0",
+    "fastapi>=0.141.1",
+    "uvicorn>=0.52.4",
+    "python-multipart>=0.0.32",
 ]
+
 [project.scripts]
 convert = "main:main"
 
