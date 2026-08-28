@@ -4,7 +4,7 @@ from pathlib import Path
 
 from google import genai
 
-from config.config import PromptType
+from config.config_manager import PromptType
 from parsers.epub import epub_to_markdown_pro
 from parsers.md import md_parser_pro
 from parsers.pdf import pdf_to_markdown_pro

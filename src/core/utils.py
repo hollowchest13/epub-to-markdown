@@ -13,6 +13,7 @@ from google.genai import types
 from google.genai.errors import ClientError
 
 from config.config import API_DELAY, MAX_API_RETRIES
+from core.models import BookFormat
 from errors.api_errors import RateLimitExceeded
 
 logger = logging.getLogger(__name__)
@@ -254,7 +255,7 @@ def collect_chapters_from_text(*, text: str, chapter_min_size) -> list[tuple[str
     return chapters
 
 
-def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, str]:
+def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, Any]:
     try:
         if not json_file.exists():
             json_file.write_text(
@@ -265,3 +266,16 @@ def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, st
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Could not read settings file: %s", e)
     return default_data
+
+
+def filter_supported_files(files: list[Path]) -> list[Path]:
+    allowed = {fmt.value for fmt in BookFormat}
+    validated_files: list[Path] = []
+
+    for file in files:
+        suffix = Path(file).suffix.lower()
+        if suffix not in allowed:
+            raise ValueError(f"Unsupported file type: {suffix} (in file: {file.name})")
+        validated_files.append(file)
+
+    return validated_files

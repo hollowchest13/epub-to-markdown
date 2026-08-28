@@ -2,7 +2,7 @@
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from config.config import PromptType
+from core.models import PromptType
 
 
 @runtime_checkable
