@@ -268,14 +268,20 @@ def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, An
     return default_data
 
 
-def filter_supported_files(files: list[Path]) -> list[Path]:
+def is_supported(file_path: str | Path) -> bool:
+    suffix = Path(file_path).suffix.lower()
     allowed = {fmt.value for fmt in BookFormat}
+    return suffix in allowed
+
+
+def filter_supported_files(files: list[Path]) -> list[Path]:
     validated_files: list[Path] = []
 
     for file in files:
-        suffix = Path(file).suffix.lower()
-        if suffix not in allowed:
-            raise ValueError(f"Unsupported file type: {suffix} (in file: {file.name})")
+        if not is_supported(file):
+            raise ValueError(
+                f"Unsupported file type: {Path(file).suffix.lower()} (in file: {file.name})"
+            )
         validated_files.append(file)
 
     return validated_files
