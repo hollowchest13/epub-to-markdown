@@ -275,13 +275,10 @@ def is_supported(file_path: str | Path) -> bool:
 
 
 def filter_supported_files(files: list[Path]) -> list[Path]:
-    validated_files: list[Path] = []
-
+    result = []
     for file in files:
-        if not is_supported(file):
-            raise ValueError(
-                f"Unsupported file type: {Path(file).suffix.lower()} (in file: {file.name})"
-            )
-        validated_files.append(file)
-
-    return validated_files
+        if is_supported(file):
+            result.append(file)
+        else:
+            logger.warning("Skipping unsupported file: %s", file.name)
+    return result

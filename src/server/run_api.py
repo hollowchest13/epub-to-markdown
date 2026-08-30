@@ -1,10 +1,21 @@
+import asyncio
+import io
+import logging
+import tempfile
+import zipfile
 from pathlib import Path
+from typing import Annotated
 
 import uvicorn
-from fastapi import FastAPI, File, Request, UploadFile
+from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
+from google import genai
 
 from config.config_manager import ConfigManager
+from core.converter import convert_to_md
 from core.utils import is_supported
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(config_manager: ConfigManager) -> FastAPI:
@@ -18,10 +29,53 @@ def create_app(config_manager: ConfigManager) -> FastAPI:
     app.state.config_manager = config_manager
 
     @app.post("/convert")
-    async def convert(files: list[UploadFile] | None = None):
-        if files is None:
-            return {"error": "Files not loaded"}
-        files = filter_supported_uploads(files)
+    async def convert(
+        files: Annotated[list[UploadFile], File()],
+        x_api_key: Annotated[str, Header()],
+    ):
+        if not files:
+            raise HTTPException(status_code=400, detail="No files provided")
+        supported = filter_supported_uploads(files)
+
+        if not supported:
+            raise HTTPException(status_code=400, detail="No supported files provided")
+
+        tmp_paths = await adapt_upload_files(supported)
+        loop = asyncio.get_running_loop()
+        client = genai.Client(api_key=x_api_key)
+
+        try:
+            await loop.run_in_executor(
+                None,
+                lambda: convert_to_md(
+                    files=tmp_paths,
+                    client=client,
+                    target_dir=output_dir,
+                    prompt_dict=config_manager.get_prompt_dict(),
+                    model=config_manager.model,
+                ),
+            )
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+                for tmp_path in tmp_paths:
+                    result_dir = output_dir / tmp_path.stem
+                    if result_dir.exists():
+                        for md_file in result_dir.rglob("*.md"):
+                            zf.write(md_file, md_file.relative_to(output_dir))
+
+            zip_buffer.seek(0)
+            return StreamingResponse(
+                zip_buffer,
+                media_type="application/zip",
+                headers={"Content-Disposition": "attachment; filename=converted.zip"},
+            )
+        finally:
+            for path in tmp_paths:
+                path.unlink(missing_ok=True)
+
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}
 
     return app
 
@@ -31,14 +85,26 @@ def filter_supported_uploads(uploaded_files: list[UploadFile]) -> list[UploadFil
 
     for file in uploaded_files:
         filename = file.filename or ""
-        suffix = Path(filename).suffix.lower()
 
-        if not is_supported(suffix):
-            raise ValueError(f"Unsupported file type: {suffix} (in file: {filename})")
-        validated_files.append(file)
+        if is_supported(filename):
+            validated_files.append(file)
+        else:
+            logger.warning("Unsupported file type: %s", filename)
 
     return validated_files
 
 
-def run_api(config_manager: ConfigManager):
-    pass
+async def adapt_upload_files(upload_files: list[UploadFile]) -> list[Path]:
+    paths: list[Path] = []
+    for file in upload_files:
+        filename = file.filename or "unknown"
+        suffix = Path(filename).suffix.lower()
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(await file.read())
+            paths.append(Path(tmp.name))
+    return paths
+
+
+def run_api(config_manager: ConfigManager, host: str = "0.0.0.0", port: int = 8000):
+    app = create_app(config_manager)
+    uvicorn.run(app, host=host, port=port)
