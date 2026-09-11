@@ -52,8 +52,11 @@ async def convert(
                 result_dir = request_dir / tmp_path.stem
                 if result_dir.exists():
                     for md_file in result_dir.rglob("*.md"):
-                        safe_stem = Path(original_stem).name
-                        arc_path = Path(safe_stem) / md_file.relative_to(result_dir)
+                        base_name = Path(original_stem).stem or "document"
+                        safe_name = Path(base_name).name
+                        unique_suffix = tmp_path.stem
+                        folder_name = f"{safe_name}_{unique_suffix}"
+                        arc_path = Path(folder_name) / md_file.relative_to(result_dir)
                         zf.write(md_file, arc_path)
         zip_buffer.seek(0)
         return StreamingResponse(
