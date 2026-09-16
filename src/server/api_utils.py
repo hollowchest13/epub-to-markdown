@@ -25,10 +25,32 @@ def filter_supported_uploads(uploaded_files: list[UploadFile]) -> list[UploadFil
 
 async def adapt_upload_files(upload_files: list[UploadFile]) -> list[tuple[Path, str]]:
     paths = []
+    seen_filenames = set()
+
+    temp_dir = Path(tempfile.gettempdir())
+
     for file in upload_files:
-        filename = file.filename or "unknown"
-        suffix = Path(filename).suffix.lower()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(await file.read())
-            paths.append((Path(tmp.name), Path(filename).stem))
+        raw_filename = file.filename or "unknown"
+
+        safe_name = Path(raw_filename).name
+        p = Path(safe_name)
+        stem = p.stem
+        suffix = p.suffix.lower()
+
+        unique_name = safe_name
+        counter = 1
+        target_path = temp_dir / unique_name
+
+        while unique_name in seen_filenames or target_path.exists():
+            unique_name = f"{stem} ({counter}){suffix}"
+            target_path = temp_dir / unique_name
+            counter += 1
+
+        seen_filenames.add(unique_name)
+
+        content = await file.read()
+        target_path.write_bytes(content)
+
+        paths.append((target_path, Path(unique_name).stem))
+
     return paths
