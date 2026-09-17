@@ -36,19 +36,16 @@ def _cleanup_temp_files(tmp_paths: list[Path], request_dir: Path):
     shutil.rmtree(request_dir, ignore_errors=True)
 
 
-def _create_result_archive(request_dir: Path, tmp_paths_with_names: list) -> Path:
+def _create_result_archive(request_dir: Path, tmp_paths: list[Path]) -> Path:
     """Packages generated Markdown files into a ZIP archive saved directly on disk."""
     zip_path = request_dir / "converted.zip"
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for tmp_path, original_stem in tmp_paths_with_names:
+        for tmp_path in tmp_paths:
             result_dir = request_dir / tmp_path.stem
             if result_dir.exists():
-                for md_file in result_dir.rglob("*.md"):
-                    base_name = Path(original_stem).stem or "document"
-                    safe_name = Path(base_name).name
-                    unique_suffix = tmp_path.stem
-                    folder_name = f"{safe_name}_{unique_suffix}"
+                folder_name = tmp_path.stem
 
+                for md_file in result_dir.rglob("*.md"):
                     arc_path = Path(folder_name) / md_file.relative_to(result_dir)
                     zf.write(md_file, arc_path)
     return zip_path
@@ -88,8 +85,7 @@ async def convert(
     except NetworkError:
         raise HTTPException(status_code=503, detail="Internet connection error")
 
-    tmp_paths_with_names = await adapt_upload_files(supported)
-    tmp_paths = [p for p, _ in tmp_paths_with_names]
+    tmp_paths = await adapt_upload_files(supported)
 
     client = genai.Client(api_key=x_api_key)
     request_dir = config_manager.output_dir / str(uuid.uuid4())
@@ -102,7 +98,7 @@ async def convert(
         )
 
         zip_path = await loop.run_in_executor(
-            None, lambda: _create_result_archive(request_dir, tmp_paths_with_names)
+            None, lambda: _create_result_archive(request_dir, tmp_paths)
         )
 
         return StreamingResponse(

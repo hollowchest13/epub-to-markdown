@@ -23,7 +23,7 @@ def filter_supported_uploads(uploaded_files: list[UploadFile]) -> list[UploadFil
     return validated_files
 
 
-async def adapt_upload_files(upload_files: list[UploadFile]) -> list[tuple[Path, str]]:
+async def adapt_upload_files(upload_files: list[UploadFile]) -> list[Path]:
     paths = []
     seen_filenames = set()
 
@@ -51,6 +51,6 @@ async def adapt_upload_files(upload_files: list[UploadFile]) -> list[tuple[Path,
         content = await file.read()
         target_path.write_bytes(content)
 
-        paths.append((target_path, Path(unique_name).stem))
+        paths.append(target_path)
 
     return paths
