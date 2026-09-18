@@ -12,7 +12,6 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
 
-from config.config import API_DELAY, MAX_API_RETRIES
 from core.models import BookFormat
 from errors.api_errors import RateLimitExceeded
 
@@ -91,12 +90,13 @@ def fetch_batch_with_retry(
     client: genai.Client,
     model: str,
     contents: list,
-    max_retries: int,
+    max_api_retries: int,
+    api_delay: int,
     expect_json: bool = False,
     batch_size: int | None = None,
     batch_index: int | None = None,
 ) -> list | str | None:
-    for attempt in range(1, max_retries + 1):
+    for attempt in range(1, max_api_retries + 1):
         try:
             response = call_gemini_api(
                 client=client,
@@ -109,12 +109,12 @@ def fetch_batch_with_retry(
             logger.warning(
                 "Attempt %s/%s: Rate limit hit, batch %s. Waiting %ss. Error: %s",
                 attempt,
-                max_retries,
+                max_api_retries,
                 batch_index,
                 wait_time,
                 e,
             )
-            if attempt == max_retries:
+            if attempt == max_api_retries:
                 raise
             time.sleep(wait_time)
             continue
@@ -124,12 +124,12 @@ def fetch_batch_with_retry(
             logger.warning(
                 "Attempt %s/%s: API error: %s, batch %s. Waiting %ss.",
                 attempt,
-                max_retries,
+                max_api_retries,
                 e,
                 batch_index,
                 wait_time,
             )
-            if attempt == max_retries:
+            if attempt == max_api_retries:
                 break
             time.sleep(wait_time)
             continue
@@ -139,34 +139,34 @@ def fetch_batch_with_retry(
                 logger.warning(
                     "Attempt %s/%s: expected list, got %s. Batch %s.",
                     attempt,
-                    max_retries,
+                    max_api_retries,
                     type(response),
                     batch_index,
                 )
-                time.sleep(API_DELAY)
+                time.sleep(api_delay)
                 continue
 
             if batch_size is not None and len(response) != batch_size:
                 logger.warning(
                     "Attempt %s/%s: response length %s != batch size %s. Batch %s.",
                     attempt,
-                    max_retries,
+                    max_api_retries,
                     len(response),
                     batch_size,
                     batch_index,
                 )
-                time.sleep(API_DELAY)
+                time.sleep(api_delay)
                 continue
         else:
             if not isinstance(response, str):
                 logger.warning(
                     "Attempt %s/%s: expected str, got %s. Batch %s.",
                     attempt,
-                    max_retries,
+                    max_api_retries,
                     type(response),
                     batch_index,
                 )
-                time.sleep(API_DELAY)
+                time.sleep(api_delay)
                 continue
         return response
 
@@ -179,6 +179,8 @@ def images_to_md(
     client,
     model,
     prompt_text: str,
+    api_delay: int,
+    max_api_retries: int,
     img_dict: dict[str, bytes],
     batch_size: int,
     callback: Callable = lambda *args, **kwargs: None,
@@ -205,8 +207,9 @@ def images_to_md(
             model=model,
             contents=contents,
             batch_size=len(batch),
+            api_delay=api_delay,
             batch_index=i,
-            max_retries=MAX_API_RETRIES,
+            max_api_retries=max_api_retries,
             expect_json=True,
         )
 
@@ -214,7 +217,7 @@ def images_to_md(
             logger.error(
                 "Batch %s: failed to receive a valid response after %s attempt(s). Batch skipped.",
                 i,
-                MAX_API_RETRIES,
+                max_api_retries,
             )
             continue
 
@@ -230,7 +233,7 @@ def images_to_md(
         logger.info(
             "Processed %s з %s images", min(i + batch_size, images_num), images_num
         )
-        time.sleep(API_DELAY)
+        time.sleep(api_delay)
 
     return all_results
 

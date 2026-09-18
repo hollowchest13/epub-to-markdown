@@ -21,11 +21,10 @@ def _run_conversion(
 ):
     """Performs synchronous file conversion (for execution in the executor)."""
     convert_to_md(
+        config_manager=config_manager,
         files=tmp_paths,
         client=client,
         target_dir=request_dir,
-        prompt_dict=config_manager.get_prompt_dict(),
-        model=config_manager.model,
     )
 
 

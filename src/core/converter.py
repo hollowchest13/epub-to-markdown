@@ -4,10 +4,8 @@ from pathlib import Path
 
 from google import genai
 
-from config.config_manager import PromptType
-from parsers.epub import epub_to_markdown_pro
-from parsers.md import md_parser_pro
-from parsers.pdf import pdf_to_markdown_pro
+from config.config_manager import ConfigManager
+from parsers import EpubParser, MdParser, PdfParser
 
 logger = logging.getLogger(__name__)
 
@@ -16,46 +14,45 @@ def convert_to_md(
     files: list[Path],
     *,
     client: genai.Client,
+    config_manager: ConfigManager,
     target_dir: Path,
-    model: str,
-    prompt_dict: dict,
     callback: Callable = lambda *args, **kwargs: None,
     on_rate_limit: Callable = lambda *args, **kwargs: None,
 ):
+    epub_parser = None
+    pdf_parser = None
+    md_parser = None
+    parser = None
     for file in files:
         file_suffix = file.suffix
         output_dir: Path = target_dir / file.stem
         try:
             match file_suffix:
                 case ".epub":
-                    prompt_text = prompt_dict[PromptType.IMAGE_PROMPT]
-                    epub_to_markdown_pro(
-                        epub_path=file,
-                        output_dir=output_dir,
-                        client=client,
-                        model=model,
-                        prompt_text=prompt_text,
-                        callback=callback,
-                        on_rate_limit=on_rate_limit,
-                    )
-                case ".pdf":
-                    prompt_text = prompt_dict[PromptType.PDF_PROMPT]
-                    pdf_to_markdown_pro(
-                        pdf_path=file,
-                        output_dir=output_dir,
-                        client=client,
-                        prompt_text=prompt_text,
-                        model=model,
-                        callback=callback,
-                        on_rate_limit=on_rate_limit,
-                    )
-                case ".md":
-                    md_parser_pro(
-                        md_path=file, output_dir=output_dir, callback=callback
-                    )
+                    if not epub_parser:
+                        epub_parser = EpubParser(config_manager=config_manager)
+                    parser = epub_parser
 
+                case ".pdf":
+                    if not pdf_parser:
+                        pdf_parser = PdfParser(config_manager=config_manager)
+                    parser = pdf_parser
+
+                case ".md":
+                    if not md_parser:
+                        md_parser = MdParser(config_manager=config_manager)
+                    parser = md_parser
                 case _:
                     logger.warning("Skipping unsupported file: %s", file.name)
+
+            if parser:
+                parser.to_markdown(
+                    file_path=file,
+                    output_dir=output_dir,
+                    client=client,
+                    callback=callback,
+                    on_rate_limit=on_rate_limit,
+                )
         except Exception:
             logger.exception("Processing error %s:", file.name)
             continue

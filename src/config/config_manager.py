@@ -8,6 +8,7 @@ from dotenv import dotenv_values, set_key
 from google import genai
 from google.genai.errors import APIError
 
+from config.models import ConfigKey
 from core.models import PromptType
 from core.utils import get_json_data
 from errors.network_errors import NetworkError
@@ -19,17 +20,25 @@ class ConfigManager:
     def __init__(
         self,
         base_dir: Path,
-        model: str,
         api_key_name="GEMINI_API_KEY",
         filename=".env",
     ):
 
         self._base_dir = base_dir
         self._env_path = self._base_dir / filename
-        self._model = model
         self._api_key_name = api_key_name
         self._config_toml = self._base_dir / "pyproject.toml"
         self._settings_json = self._base_dir / "settings.json"
+        self._default_settings: dict[str, Any] = {
+            ConfigKey.MODE: "api",
+            ConfigKey.IMG_CHUNK_SIZE: 15,
+            ConfigKey.API_DELAY: 6,
+            ConfigKey.OUT_OF_LIMIT_DELAY: 60,
+            ConfigKey.CHAPTER_MIN_SIZE: 200,
+            ConfigKey.MAX_API_RETRIES: 5,
+            ConfigKey.MIN_CHUNK_LENGTH: 50,
+            ConfigKey.MODEL_VERSION: "gemma-4-26B-A4B-it",
+        }
 
     @property
     def output_dir(self) -> Path:
@@ -40,20 +49,12 @@ class ConfigManager:
         return self._ensure_dir("uploads")
 
     @property
-    def model(self) -> str:
-        return self._model
-
-    @property
     def prompts_path(self) -> Path:
         return self._base_dir / "prompts.json"
 
     @property
-    def default_settings(self) -> dict:
-        return {"mode": "gui"}
-
-    @property
-    def settings(self) -> dict[str, str]:
-        return get_json_data(self._settings_json, self.default_settings)
+    def settings(self) -> dict[str, Any]:
+        return get_json_data(self._settings_json, self._default_settings)
 
     @property
     def mode(self) -> str:
@@ -70,6 +71,48 @@ class ConfigManager:
         except (tomllib.TOMLDecodeError, OSError) as e:
             logger.warning("Could not read TOML file %s: %s", self._config_toml, e)
             return {}
+
+    @property
+    def model(self) -> str:
+        return self.settings.get(
+            "model", self._default_settings[ConfigKey.MODEL_VERSION]
+        )
+
+    @property
+    def img_chunk_size(self) -> int:
+        return self.settings.get(
+            "img_chunk_size", self._default_settings[ConfigKey.IMG_CHUNK_SIZE]
+        )
+
+    @property
+    def api_delay(self) -> int:
+        return self.settings.get(
+            "api_delay", self._default_settings[ConfigKey.API_DELAY]
+        )
+
+    @property
+    def out_of_limit_delay(self) -> int:
+        return self.settings.get(
+            "out_of_limit_delay", self._default_settings[ConfigKey.OUT_OF_LIMIT_DELAY]
+        )
+
+    @property
+    def chapter_min_size(self) -> int:
+        return self.settings.get(
+            "chapter_min_size", self._default_settings[ConfigKey.CHAPTER_MIN_SIZE]
+        )
+
+    @property
+    def max_api_retries(self) -> int:
+        return self.settings.get(
+            "max_api_retries", self._default_settings[ConfigKey.MAX_API_RETRIES]
+        )
+
+    @property
+    def min_chunk_length(self) -> int:
+        return self.settings.get(
+            "min_chunk_length", self._default_settings[ConfigKey.MIN_CHUNK_LENGTH]
+        )
 
     @property
     def default_prompts(self) -> dict[PromptType, str]:

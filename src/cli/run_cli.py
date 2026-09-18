@@ -5,7 +5,7 @@ from pathlib import Path
 
 from google import genai
 
-from config.config import BASE_DIR, MODEL_VERSION
+from config.config import BASE_DIR
 from config.config_manager import ConfigManager
 from core.converter import convert_to_md
 
@@ -38,13 +38,11 @@ def run_cli(config_manager: ConfigManager):
         return
 
     client = genai.Client(api_key=gemini_api_key)
-    prompt_dict = config_manager.get_prompt_dict()
     convert_to_md(
         files,
+        config_manager=config_manager,
         client=client,
-        model=MODEL_VERSION,
         target_dir=base_dir,
-        prompt_dict=prompt_dict,
     )
 
 
