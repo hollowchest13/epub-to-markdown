@@ -4,13 +4,13 @@ from pathlib import Path
 
 from google import genai
 
+from config.config_manager import ConfigManager
 from controllers.base_controller import BaseController
 from core.converter import convert_to_md
-from protocols import ConfigProtocol
 
 
 class AppController(BaseController):
-    def __init__(self, *, config_manager: ConfigProtocol):
+    def __init__(self, *, config_manager: ConfigManager):
         super().__init__()
         self._rate_limit_event = threading.Event()
         self._config_manager = config_manager
@@ -35,15 +35,13 @@ class AppController(BaseController):
         self._rate_limit_event.clear()
         client = genai.Client(api_key=api_key)
         target_dir = self._config_manager.output_dir
-        prompt_dict = self._config_manager.get_prompt_dict()
         file_list = list(map(Path, files))
         self._run_long_process(
             lambda: convert_to_md(
                 files=file_list,
                 client=client,
                 target_dir=target_dir,
-                model=self._config_manager.model,
-                prompt_dict=prompt_dict,
+                config_manager=self._config_manager,
                 callback=self.gui_callback,
                 on_rate_limit=self._on_rate_limit,
             ),

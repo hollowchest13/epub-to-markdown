@@ -75,7 +75,7 @@ class ConfigManager:
     @property
     def model(self) -> str:
         return self.settings.get(
-            "model", self._default_settings[ConfigKey.MODEL_VERSION]
+            ConfigKey.MODEL_VERSION, self._default_settings[ConfigKey.MODEL_VERSION]
         )
 
     @property

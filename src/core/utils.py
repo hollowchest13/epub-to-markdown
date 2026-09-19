@@ -198,7 +198,7 @@ def images_to_md(
                 types.Part.from_bytes(data=img_data, mime_type="image/jpeg")
             )
 
-        formated_prompt_text = prompt_text.format(batch_size)
+        formated_prompt_text = prompt_text.format(batch_size=batch_size)
 
         contents.append(formated_prompt_text)
 
