@@ -37,7 +37,7 @@ class ConfigManager:
             ConfigKey.CHAPTER_MIN_SIZE: 200,
             ConfigKey.MAX_API_RETRIES: 5,
             ConfigKey.MIN_CHUNK_LENGTH: 50,
-            ConfigKey.MODEL_VERSION: "gemma-4-26B-A4B-it",
+            ConfigKey.MODEL_VERSION: "gemma-4-26b-a4b-it",
         }
 
     @property
