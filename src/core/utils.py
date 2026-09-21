@@ -12,7 +12,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
 
-from core.models import BookFormat
+from core.models import BookFormat, ImageAnalysisResponse
 from errors.api_errors import RateLimitExceeded
 
 logger = logging.getLogger(__name__)
@@ -58,16 +58,29 @@ def call_gemini_api(
 ) -> Any:
 
     try:
+        config = types.GenerateContentConfig(
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            )
+        )
+        if expect_json:
+            config.response_mime_type = "application/json"
+            config.response_schema = ImageAnalysisResponse
+
         response = client.models.generate_content(
             model=model,
             contents=contents,
+            config=config,
         )
         text = response.text or ""
         if not expect_json:
             return text
-        clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-        logger.info(f"Answer {len(clean)} symbols")
-        return json.loads(clean)
+
+        if isinstance(response.parsed, ImageAnalysisResponse):
+            return response.parsed.results
+        raise TypeError(
+            f"Expected ImageAnalysisResponse, but got {type(response.parsed)}"
+        )
 
     except ClientError as e:
         logger.exception("Unsuccessful request")
@@ -96,7 +109,9 @@ def fetch_batch_with_retry(
     batch_size: int | None = None,
     batch_index: int | None = None,
 ) -> list | str | None:
+
     for attempt in range(1, max_api_retries + 1):
+        wait_time = 2 ** (attempt - 1) * 5
         try:
             response = call_gemini_api(
                 client=client,
@@ -105,7 +120,6 @@ def fetch_batch_with_retry(
                 expect_json=expect_json,
             )
         except RateLimitExceeded as e:
-            wait_time = 2 ** (attempt - 1) * 5
             logger.warning(
                 "Attempt %s/%s: Rate limit hit, batch %s. Waiting %ss. Error: %s",
                 attempt,
@@ -120,7 +134,6 @@ def fetch_batch_with_retry(
             continue
 
         except Exception as e:  # noqa: BLE001
-            wait_time = 2 ** (attempt - 1) * 3
             logger.warning(
                 "Attempt %s/%s: API error: %s, batch %s. Waiting %ss.",
                 attempt,
