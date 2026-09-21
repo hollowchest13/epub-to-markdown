@@ -91,10 +91,6 @@ def call_gemini_api(
         if e.code == 503:
             raise
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON received: {e}")
-        raise RuntimeError("Invalid JSON response from model") from e
-
     raise RuntimeError("Could not get a response")
 
 
@@ -132,6 +128,43 @@ def fetch_batch_with_retry(
                 raise
             time.sleep(wait_time)
             continue
+
+        except ClientError as e:
+            match e.code:
+                case 400:
+                    logger.error(
+                        "Attempt %s/%s: Bad Request (400) for batch %s. Aborting retries.",
+                        attempt,
+                        max_api_retries,
+                        batch_index,
+                    )
+                    raise
+                case 429:
+                    logger.warning(
+                        "Attempt %s/%s: Rate limit (429) via ClientError, batch %s. Waiting %ss.",
+                        attempt,
+                        max_api_retries,
+                        batch_index,
+                        wait_time,
+                    )
+                    if attempt == max_api_retries:
+                        raise
+                    time.sleep(wait_time)
+                    continue
+                case _:
+                    logger.warning(
+                        "Attempt %s/%s: ClientError code %s, batch %s. Waiting %ss. Error: %s",
+                        attempt,
+                        max_api_retries,
+                        getattr(e, "code", "unknown"),
+                        batch_index,
+                        wait_time,
+                        e,
+                    )
+                    if attempt == max_api_retries:
+                        raise
+                    time.sleep(wait_time)
+                    continue
 
         except Exception as e:  # noqa: BLE001
             logger.warning(
