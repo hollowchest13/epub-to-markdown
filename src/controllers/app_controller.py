@@ -3,6 +3,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from google import genai
+from google.genai import types
 
 from config.config_manager import ConfigManager
 from controllers.base_controller import BaseController
@@ -33,7 +34,12 @@ class AppController(BaseController):
         if not api_key:
             return
         self._rate_limit_event.clear()
-        client = genai.Client(api_key=api_key)
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=180000,
+            ),
+        )
         target_dir = self._config_manager.output_dir
         file_list = list(map(Path, files))
         self._run_long_process(

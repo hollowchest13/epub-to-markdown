@@ -37,7 +37,7 @@ class ConfigManager:
             ConfigKey.CHAPTER_MIN_SIZE: 200,
             ConfigKey.MAX_API_RETRIES: 5,
             ConfigKey.MIN_CHUNK_LENGTH: 50,
-            ConfigKey.MODEL_VERSION: "gemma-4-26b-a4b-it",
+            ConfigKey.MODEL_VERSION: "gemini-3.1-flash-lite",
         }
 
     @property
@@ -172,7 +172,10 @@ class ConfigManager:
         Also raises NetworkError, TimeoutError if bad internet connection.
         """
         try:
-            client = genai.Client(api_key=api_key)
+            client = genai.Client(
+                api_key=api_key,
+            )
+
             client.models.generate_content(
                 model=self.model,
                 contents="Test",
