@@ -35,6 +35,7 @@ class PdfParser(BaseParser):
         self._img_chunk_size = config_manager.img_chunk_size
         self._min_chunk_lenght = config_manager.min_chunk_length
         self._prompt_text = self._prompt_dict[PromptType.PDF_PROMPT]
+        self._chunk_size = self._config_manager.pdf_chunk_size
 
     def _extract_pdf_metadata(self, *, doc: fitz.Document, pdf_path: Path) -> dict:
         meta: dict = doc.metadata or {}
@@ -119,7 +120,10 @@ class PdfParser(BaseParser):
 
         with fitz.open(str(file_path)) as doc:
             metadata = self._extract_pdf_metadata(doc=doc, pdf_path=file_path)
-            plan = self._build_processing_plan(doc=doc)
+
+            plan = self._build_processing_plan(
+                doc=doc, max_pages_per_batch=self._chunk_size
+            )
             for i, (method, pages) in enumerate(plan, 1):
                 logger.info(
                     "Plan %03d/%03d | method: %s | pages: %s",
@@ -195,7 +199,7 @@ class PdfParser(BaseParser):
         return is_scanned or has_math or has_images
 
     def _build_processing_plan(
-        self, doc, *, max_pages_per_batch: int = 20
+        self, doc, *, max_pages_per_batch: int = 10
     ) -> list[tuple[str, list[int]]]:
         groups = []
         current_method = None

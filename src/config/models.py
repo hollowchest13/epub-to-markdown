@@ -4,6 +4,7 @@ from enum import StrEnum, auto
 class ConfigKey(StrEnum):
     MODE = auto()
     IMG_CHUNK_SIZE = auto()
+    PDF_CHUNK_SIZE = auto()
     API_DELAY = auto()
     OUT_OF_LIMIT_DELAY = auto()
     CHAPTER_MIN_SIZE = auto()

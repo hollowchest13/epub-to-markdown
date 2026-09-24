@@ -32,6 +32,7 @@ class ConfigManager:
         self._default_settings: dict[str, Any] = {
             ConfigKey.MODE: "api",
             ConfigKey.IMG_CHUNK_SIZE: 15,
+            ConfigKey.PDF_CHUNK_SIZE: 20,
             ConfigKey.API_DELAY: 6,
             ConfigKey.OUT_OF_LIMIT_DELAY: 60,
             ConfigKey.CHAPTER_MIN_SIZE: 200,
@@ -82,6 +83,12 @@ class ConfigManager:
     def img_chunk_size(self) -> int:
         return self.settings.get(
             "img_chunk_size", self._default_settings[ConfigKey.IMG_CHUNK_SIZE]
+        )
+
+    @property
+    def pdf_chunk_size(self) -> int:
+        return self.settings.get(
+            "pdf_chunk_size", self._default_settings[ConfigKey.PDF_CHUNK_SIZE]
         )
 
     @property
