@@ -95,15 +95,18 @@ class PdfParser(BaseParser):
                 logger.error(
                     "Gemini API error: %s. Falling back to local conversion.", e
                 )
+            chunk_text = self._local_conversion(pdf_bytes=pdf_bytes, force_ocr=True)
+            logger.info("Local OCR fallback result has %s characters.", len(chunk_text))
+            return chunk_text
 
         chunk_text = self._local_conversion(pdf_bytes=pdf_bytes)
         logger.info("Local result has %s characters.", len(chunk_text))
         return chunk_text
 
-    def _local_conversion(self, *, pdf_bytes: bytes) -> str:
+    def _local_conversion(self, *, pdf_bytes: bytes, force_ocr: bool = False) -> str:
         text = ""
         with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-            text = pymupdf4llm.to_markdown(doc)
+            text = pymupdf4llm.to_markdown(doc, force_ocr=force_ocr)
         if not isinstance(text, str):
             raise TypeError(f"Expected str, got {type(text)}")
         return text
