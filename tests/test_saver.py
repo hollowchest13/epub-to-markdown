@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from storage.saver import save_all_chapters, save_chapter
+from storage.saver import _build_frontmatter, save_all_chapters, save_chapter
 
 
 @patch("storage.saver.save_chapter")
@@ -32,12 +32,11 @@ def test_save_all_chapters(mock_save_chapter, tmp_path):
 
 
 def test_save_chapter(tmp_path):
-    # 1. Prepare input data
+
     content = "This is the text of our test chapter."
     chapter_name = "Chapter 1: The Beginning! (Part One)"
     book_metadata = {"title": "Test Book", "author": "Author"}
 
-    # 2. Call the function (works live with the temporary directory)
     save_chapter(
         content=content,
         chapter_name=chapter_name,
@@ -49,16 +48,44 @@ def test_save_chapter(tmp_path):
     )
     created_files = list(tmp_path.glob("001_*.md"))
 
-    # Verify the file was created
     assert len(created_files) == 1, "Chapter file was not created!"
 
-    # Verify the name was sanitized (no exclamation marks or brackets, lowercased)
     filename = created_files[0].name
     assert "chapter_1" in filename
     assert "!" not in filename
     assert "(" not in filename
 
-    # Verify the content and frontmatter were written into the file
     file_text = created_files[0].read_text(encoding="utf-8")
     assert content in file_text
     assert "Test Book" in file_text
+
+
+def test_build_frontmatter():
+    content = "This is a simple test content with six words here."
+    chapter_name = "Introduction"
+    book_metadata = {
+        "title": "Python Guide",
+        "author": ["John Doe"],
+        "publisher": None,
+        "subjects": [],
+    }
+
+    result = _build_frontmatter(
+        content=content,
+        chapter_name=chapter_name,
+        chapter_index=1,
+        total_chapters=10,
+        book_metadata=book_metadata,
+        extra={"custom_field": "value"},
+    )
+
+    assert result["title"] == "Python Guide"
+    assert result["author"] == ["John Doe"]
+    assert result["chapter"] == "Introduction"
+    assert result["chapter_index"] == 1
+    assert result["total_chapters"] == 10
+    assert result["word_count"] == len(content.split())
+    assert result["custom_field"] == "value"
+
+    assert "publisher" not in result
+    assert "subjects" not in result

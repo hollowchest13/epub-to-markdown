@@ -18,7 +18,6 @@ def _build_frontmatter(
     extra: dict | None = None,
 ) -> dict:
     frontmatter = {
-        # --- Книга ---
         "title": book_metadata.get("title", "Unknown"),
         "author": book_metadata.get("author", ["Unknown"]),
         "publisher": book_metadata.get("publisher"),
@@ -28,17 +27,14 @@ def _build_frontmatter(
         "rights": book_metadata.get("rights"),
         "description": book_metadata.get("description"),
         "subjects": book_metadata.get("subjects", []),
-        # --- Розділ ---
         "chapter": chapter_name,
         "chapter_index": chapter_index,
         "total_chapters": total_chapters,
         "word_count": len(content.split()),
-        # --- Файл ---
         "source_file": book_metadata.get("source_file"),
         "file_type": book_metadata.get("file_type"),
         "file_size_kb": book_metadata.get("file_size_kb"),
         "file_hash_sha256": book_metadata.get("file_hash_sha256"),
-        # --- Конвертація ---
         "converted_date": book_metadata.get("converted_date"),
         "converted_at": book_metadata.get("converted_at"),
         **(extra or {}),
