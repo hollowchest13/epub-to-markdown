@@ -8,11 +8,6 @@ from parsers.epub import EpubParser
 
 
 @pytest.fixture
-def mock_config_manager() -> MagicMock:
-    return MagicMock()
-
-
-@pytest.fixture
 def mock_parser(mock_config_manager: MagicMock) -> EpubParser:
     return EpubParser(config_manager=mock_config_manager)
 
@@ -21,24 +16,27 @@ def mock_parser(mock_config_manager: MagicMock) -> EpubParser:
 def mock_book():
     book = MagicMock()
     book.title = "Test Book"
+
     item_1 = MagicMock()
     item_1.get_type.return_value = ebooklib.ITEM_DOCUMENT
+    item_1.get_content.return_value = (
+        b"<html><body>Hello world from test book!</body></html>"
+    )
 
     item_2 = MagicMock()
     item_2.get_type.return_value = ebooklib.ITEM_DOCUMENT
-    book.spine = [("item_1", "yes"), ("item_2", "yes")]
+    item_2.get_content.return_value = (
+        b"<html><body>Second chapter content here.</body></html>"
+    )
 
+    book.spine = [("item_1", "yes"), ("item_2", "yes")]
     book.get_item_with_id.side_effect = lambda item_id: {
         "item_1": item_1,
         "item_2": item_2,
     }.get(item_id)
+    book.get_items_of_type.return_value = [item_1, item_2]
 
     return book
-
-
-@pytest.fixture
-def mock_client() -> MagicMock:
-    return MagicMock()
 
 
 def test_get_epub_images(mock_parser, mock_book):
@@ -130,3 +128,24 @@ def test_collect_epub_chapters(mock_client, mock_parser, mock_book):
         assert len(chapters) == 2
         assert chapters[0] == ("Chapter 1", "Text for chapter one...")
         assert chapters[1] == ("Chapter 2", "Text for chapter two...")
+
+
+def test_extract_epub_metadata(mock_parser, mock_book, tmp_path):
+    fake_epub_file = tmp_path / "test_book.epub"
+    fake_epub_file.touch()
+
+    def mock_get_metadata(namespace, key):
+        metadata_store = {
+            "title": [("Test Book Title", "lang")],
+            "creator": [("John Doe", "lang")],
+            "publisher": ["Test Publisher"],
+        }
+        return metadata_store.get(key, [])
+
+    mock_book.get_metadata.side_effect = mock_get_metadata
+
+    result = mock_parser._extract_epub_metadata(mock_book, epub_path=fake_epub_file)
+
+    assert result["title"] == "Test Book Title"
+    assert result["total_spine_items"] == 2
+    assert result["estimated_total_words"] == 9
