@@ -202,7 +202,7 @@ class PdfParser(BaseParser):
         return is_scanned or has_math or has_images
 
     def _build_processing_plan(
-        self, doc, *, max_pages_per_batch: int = 10
+        self, doc: fitz.Document, *, max_pages_per_batch: int = 10
     ) -> list[tuple[str, list[int]]]:
         groups = []
         current_method = None
@@ -229,7 +229,7 @@ class PdfParser(BaseParser):
         return groups
 
     def _plan_to_bytes(
-        self, doc, *, plan: list[tuple[str, list[int]]]
+        self, doc: fitz.Document, *, plan: list[tuple[str, list[int]]]
     ) -> list[tuple[str, bytes]]:
         """Converts the plan into a batch of bytes."""
         result = []
