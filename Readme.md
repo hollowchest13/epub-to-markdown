@@ -81,12 +81,12 @@ Available modes: `gui` (default), `cli`, and `api`.
 * `api`: Automatically starts the FastAPI web server.
 
 ## Screenshots
-`GUI` mode:
 
-[GUI Interface](https://github.com/hollowchest13/epub-to-markdown/blob/main/screenshots/gui.png)
+`GUI` mode:
+![GUI Interface](https://raw.github.com/hollowchest13/epub-to-markdown/blob/main/screenshots/gui.png)
 
 `CLI` mode:
-![CLI Commands](https://github.com/hollowchest13/epub-to-markdown/blob/main/screenshots/cli.png)
+![CLI Commands](https://raw.github.com/hollowchest13/epub-to-markdown/blob/main/screenshots/cli.png)
 
 
 Upon first launch in CLI or GUI mode, the application will prompt for your Google Gemini API key and save it to a .env file.
