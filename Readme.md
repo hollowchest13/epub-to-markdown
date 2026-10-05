@@ -82,10 +82,12 @@ Available modes: `gui` (default), `cli`, and `api`.
 
 ## Screenshots
 
-`GUI` mode:
+**`GUI` mode:**
+
 ![GUI Interface](https://raw.githubusercontent.com/hollowchest13/epub-to-markdown/main/screenshots/gui.png)
 
-`CLI` mode:
+**`CLI` mode:**
+
 ![CLI Commands](https://raw.githubusercontent.com/hollowchest13/epub-to-markdown/main/screenshots/cli.png)
 
 Upon first launch in CLI or GUI mode, the application will prompt for your Google Gemini API key and save it to a .env file.
