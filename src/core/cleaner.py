@@ -13,14 +13,19 @@ _PATTERNS = [
         ),
         "",
     ),
+    (
+        re.compile(r"\[([^\]]+)\]\([^)]*?\.(?:x?html|htm)(?:#[^)]*)?\)"),
+        r"\1",
+    ),
+    (re.compile(r"\([^)]*?\.(?:x?html|htm)(?:#[^)]*)?\)"), ""),
     (re.compile(r"\([cp]\d+\.xhtml(?:#.*?)?\)"), ""),
     (re.compile(r"\(.*?\.html#filepos\d+\)"), ""),
+    (re.compile(r"\(\#[^)]+\)"), ""),
     (re.compile(r"!\[.*?\]\(images/.*?\)"), ""),
     (re.compile(r"\[\d+\]"), ""),
-    (re.compile(r"\(\#[^)]+\)"), ""),
     (re.compile(r"</?[a-zA-Z][a-zA-Z0-9]*(?:\s[^>]*)?>"), ""),
     (re.compile(r"\n{3,}"), "\n\n"),
-    (re.compile(r"\([^)]*\.html#[^)]+\)"), ""),
+    (re.compile(r"<?xml\s+version=['\"].*?['\"].*?\?", re.IGNORECASE), ""),
 ]
 
 

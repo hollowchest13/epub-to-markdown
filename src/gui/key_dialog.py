@@ -1,6 +1,10 @@
+import logging
+import tkinter as tk
 from collections.abc import Callable
 
 import customtkinter as ctk
+
+logger = logging.getLogger(__name__)
 
 
 class KeyWindow(ctk.CTkToplevel):
@@ -23,6 +27,7 @@ class KeyWindow(ctk.CTkToplevel):
             self, width=280, placeholder_text="Insert the key here...", show="*"
         )
         self.entry.pack(pady=5)
+        self.entry.bind("<Control-v>", lambda e: self._paste_text())
 
         self.btn = ctk.CTkButton(self, text="Save and continue", command=self._on_save)
         self.btn.pack(pady=15)
@@ -33,3 +38,11 @@ class KeyWindow(ctk.CTkToplevel):
         self.grab_release()
         self.destroy()
         self._on_save_callback()
+
+    def _paste_text(self):
+        try:
+            clipboard_content = self.clipboard_get()
+            self.entry.insert("insert", clipboard_content)
+        except tk.TclError as e:
+            logger.debug(f"Could not paste from clipboard: {e}")
+        return "break"

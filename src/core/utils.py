@@ -12,7 +12,7 @@ from google import genai
 from google.genai import types
 from google.genai.errors import ClientError
 
-from config.config import API_DELAY, MAX_API_RETRIES
+from core.models import BookFormat, ImageAnalysisResponse
 from errors.api_errors import RateLimitExceeded
 
 logger = logging.getLogger(__name__)
@@ -58,16 +58,29 @@ def call_gemini_api(
 ) -> Any:
 
     try:
+        config = types.GenerateContentConfig(
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            )
+        )
+        if expect_json:
+            config.response_mime_type = "application/json"
+            config.response_schema = ImageAnalysisResponse
+
         response = client.models.generate_content(
             model=model,
             contents=contents,
+            config=config,
         )
         text = response.text or ""
         if not expect_json:
             return text
-        clean = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
-        logger.info(f"Answer {len(clean)} symbols")
-        return json.loads(clean)
+
+        if isinstance(response.parsed, ImageAnalysisResponse):
+            return response.parsed.results
+        raise TypeError(
+            f"Expected ImageAnalysisResponse, but got {type(response.parsed)}"
+        )
 
     except ClientError as e:
         logger.exception("Unsuccessful request")
@@ -78,10 +91,6 @@ def call_gemini_api(
         if e.code == 503:
             raise
 
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON received: {e}")
-        raise RuntimeError("Invalid JSON response from model") from e
-
     raise RuntimeError("Could not get a response")
 
 
@@ -90,12 +99,15 @@ def fetch_batch_with_retry(
     client: genai.Client,
     model: str,
     contents: list,
-    max_retries: int,
+    max_api_retries: int,
+    api_delay: int,
     expect_json: bool = False,
     batch_size: int | None = None,
     batch_index: int | None = None,
 ) -> list | str | None:
-    for attempt in range(1, max_retries + 1):
+
+    for attempt in range(1, max_api_retries + 1):
+        wait_time = 2 ** (attempt - 1) * 5
         try:
             response = call_gemini_api(
                 client=client,
@@ -104,31 +116,66 @@ def fetch_batch_with_retry(
                 expect_json=expect_json,
             )
         except RateLimitExceeded as e:
-            wait_time = 2 ** (attempt - 1) * 5
             logger.warning(
                 "Attempt %s/%s: Rate limit hit, batch %s. Waiting %ss. Error: %s",
                 attempt,
-                max_retries,
+                max_api_retries,
                 batch_index,
                 wait_time,
                 e,
             )
-            if attempt == max_retries:
+            if attempt == max_api_retries:
                 raise
             time.sleep(wait_time)
             continue
 
+        except ClientError as e:
+            match e.code:
+                case 400:
+                    logger.error(
+                        "Attempt %s/%s: Bad Request (400) for batch %s. Aborting retries.",
+                        attempt,
+                        max_api_retries,
+                        batch_index,
+                    )
+                    raise
+                case 429:
+                    logger.warning(
+                        "Attempt %s/%s: Rate limit (429) via ClientError, batch %s. Waiting %ss.",
+                        attempt,
+                        max_api_retries,
+                        batch_index,
+                        wait_time,
+                    )
+                    if attempt == max_api_retries:
+                        raise
+                    time.sleep(wait_time)
+                    continue
+                case _:
+                    logger.warning(
+                        "Attempt %s/%s: ClientError code %s, batch %s. Waiting %ss. Error: %s",
+                        attempt,
+                        max_api_retries,
+                        getattr(e, "code", "unknown"),
+                        batch_index,
+                        wait_time,
+                        e,
+                    )
+                    if attempt == max_api_retries:
+                        raise
+                    time.sleep(wait_time)
+                    continue
+
         except Exception as e:  # noqa: BLE001
-            wait_time = 2 ** (attempt - 1) * 3
             logger.warning(
                 "Attempt %s/%s: API error: %s, batch %s. Waiting %ss.",
                 attempt,
-                max_retries,
+                max_api_retries,
                 e,
                 batch_index,
                 wait_time,
             )
-            if attempt == max_retries:
+            if attempt == max_api_retries:
                 break
             time.sleep(wait_time)
             continue
@@ -138,34 +185,34 @@ def fetch_batch_with_retry(
                 logger.warning(
                     "Attempt %s/%s: expected list, got %s. Batch %s.",
                     attempt,
-                    max_retries,
+                    max_api_retries,
                     type(response),
                     batch_index,
                 )
-                time.sleep(API_DELAY)
+                time.sleep(api_delay)
                 continue
 
             if batch_size is not None and len(response) != batch_size:
                 logger.warning(
                     "Attempt %s/%s: response length %s != batch size %s. Batch %s.",
                     attempt,
-                    max_retries,
+                    max_api_retries,
                     len(response),
                     batch_size,
                     batch_index,
                 )
-                time.sleep(API_DELAY)
+                time.sleep(api_delay)
                 continue
         else:
             if not isinstance(response, str):
                 logger.warning(
                     "Attempt %s/%s: expected str, got %s. Batch %s.",
                     attempt,
-                    max_retries,
+                    max_api_retries,
                     type(response),
                     batch_index,
                 )
-                time.sleep(API_DELAY)
+                time.sleep(api_delay)
                 continue
         return response
 
@@ -178,6 +225,8 @@ def images_to_md(
     client,
     model,
     prompt_text: str,
+    api_delay: int,
+    max_api_retries: int,
     img_dict: dict[str, bytes],
     batch_size: int,
     callback: Callable = lambda *args, **kwargs: None,
@@ -195,7 +244,7 @@ def images_to_md(
                 types.Part.from_bytes(data=img_data, mime_type="image/jpeg")
             )
 
-        formated_prompt_text = prompt_text.format(batch_size)
+        formated_prompt_text = prompt_text.format(batch_size=batch_size)
 
         contents.append(formated_prompt_text)
 
@@ -204,8 +253,9 @@ def images_to_md(
             model=model,
             contents=contents,
             batch_size=len(batch),
+            api_delay=api_delay,
             batch_index=i,
-            max_retries=MAX_API_RETRIES,
+            max_api_retries=max_api_retries,
             expect_json=True,
         )
 
@@ -213,7 +263,7 @@ def images_to_md(
             logger.error(
                 "Batch %s: failed to receive a valid response after %s attempt(s). Batch skipped.",
                 i,
-                MAX_API_RETRIES,
+                max_api_retries,
             )
             continue
 
@@ -229,7 +279,7 @@ def images_to_md(
         logger.info(
             "Processed %s з %s images", min(i + batch_size, images_num), images_num
         )
-        time.sleep(API_DELAY)
+        time.sleep(api_delay)
 
     return all_results
 
@@ -254,7 +304,7 @@ def collect_chapters_from_text(*, text: str, chapter_min_size) -> list[tuple[str
     return chapters
 
 
-def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, str]:
+def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, Any]:
     try:
         if not json_file.exists():
             json_file.write_text(
@@ -265,3 +315,19 @@ def get_json_data(json_file: Path, default_data: dict[str, str]) -> dict[str, st
     except (json.JSONDecodeError, OSError) as e:
         logger.warning("Could not read settings file: %s", e)
     return default_data
+
+
+def is_supported(file_path: str | Path) -> bool:
+    suffix = Path(file_path).suffix.lower()
+    allowed = {fmt.value for fmt in BookFormat}
+    return suffix in allowed
+
+
+def filter_supported_files(files: list[Path]) -> list[Path]:
+    result = []
+    for file in files:
+        if is_supported(file):
+            result.append(file)
+        else:
+            logger.warning("Skipping unsupported file: %s", file.name)
+    return result
