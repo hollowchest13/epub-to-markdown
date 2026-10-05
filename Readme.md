@@ -1,71 +1,95 @@
-Book Converter 4 LLM
+# Book Converter for LLM
 
-A CLI/GUI tool for converting PDF and EPUB files into structured Markdown, optimized for RAG (Retrieval-Augmented Generation) pipelines.
+A CLI/GUI and Web API tool for converting PDF and EPUB files into structured Markdown, optimized for RAG (Retrieval-Augmented Generation) pipelines.
 
-Features
-Converts PDF and EPUB files to Markdown
-Splits output into chapters/sections as separate files
-GUI mode for easy use, CLI mode for automation
-Powered by Google Gemini API
-Automatic fallback to CLI if GUI is unavailable
-Requirements
-Python 3.12+
-Google Gemini API key
+## Features
 
-# Installation
+* Converts PDF and EPUB files to Markdown
+* Splits output into chapters and sections as separate files
+* GUI mode for interactive use, CLI mode for automation
+* FastAPI backend for web service integration
+* Powered by the Google Gemini API
+* Automatic fallback to CLI if GUI is unavailable
+
+## Requirements
+
+* Python 3.12+
+* [uv](https://github.com/astral-sh/uv) (Fast Python package manager)
+* Google Gemini API Key
+
+## Installation
+
+Clone the repository and set up the environment using `uv`:
 
 ```bash
 git clone https://github.com/hollowchest13/epub-to-markdown.git
 cd epub-to-markdown
-python -m venv .venv
+
+uv venv --python 3.12
 ```
 
-# Windows
-
-```cmd
+Windows (cmd / PowerShell)
+```bash
 .venv\Scripts\activate
-pip install .
+uv pip install .
 ```
-
-# Linux
-
+Linux / macOS
 ```bash
 source .venv/bin/activate
-pip install .
+uv pip install .
 ```
-# Usage
-
-GUI:
-
+Usage
+CLI and GUI Modes
+Run the application in the default mode (GUI or CLI based on settings):
 ```bash
 convert
 ```
-
-CLI:
-
+Additional CLI options:
 ```bash
-convert
 convert --dir /path/to/files
 convert --set-key
 ```
-## Screenshots
+FastAPI Web Server
+Start the backend server using uvicorn:
+```bash
+uvicorn server.run_api:app --reload
+```
+API Endpoints
 
-![App screenshot](screenshots/image.png)
+POST /convert: Accepts uploaded files (files) and a Gemini API key via the X-API-Key request header. Returns a ZIP archive (converted.zip) containing the structured Markdown files.
 
-## Configuration
+GET /health: Health check endpoint returning the server status.
+Testing:
+To test FastApi layout you may use curl:
 
-Edit `settings.json` to change the launch mode:
+```bash
+curl -X POST "http://localhost:8000/convert" -H "X-API-Key: your_gemini_api_key" -F "files=@/path/to/book.epub" --output converted.zip
+```
+But more comfortable use **Bruno** or **Postman**!
 
-```json
+Configuration
+Edit settings.json to configure the default launch mode:
+
+```JSON
 {
   "mode": "gui"
 }
 ```
+Available modes: `gui` (default), `cli`, and `api`. 
+* `gui`: Launches the graphical interface (automatically falls back to CLI mode if a graphical environment is unavailable).
+* `cli`: Runs the command-line interface.
+* `api`: Automatically starts the FastAPI web server.
 
-Available modes: `gui` (default), `cli`. The app automatically falls back to CLI mode if GUI is unavailable.
+## Screenshots
+`GUI` mode:
 
-On first launch the app will ask for your Gemini API key and save it to .env.
+[GUI Interface](screeshots/gui.png)
+
+`CLI` mode:
+![CLI Commands](screeshots/cli.png)
+
+
+Upon first launch in CLI or GUI mode, the application will prompt for your Google Gemini API key and save it to a .env file.
 
 Use Case
-
-Designed for preparing book content for LLM fine-tuning and RAG systems — output is clean, structured Markdown split by chapter.
+Designed for preparing book content for LLM fine-tuning and RAG systems, producing clean, structured Markdown output split by chapter.

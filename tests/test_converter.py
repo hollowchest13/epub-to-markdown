@@ -35,7 +35,6 @@ def test_convert_to_md_success(
     mock_pdf_parser_cls.assert_called_once_with(config_manager=mock_config)
     mock_md_parser_cls.assert_called_once_with(config_manager=mock_config)
 
-    # Перевіряємо основні аргументи, оскільки callback та on_rate_limit генеруються всередині як лямбди
     epub_instance.to_markdown.assert_called_once()
     call_kwargs = epub_instance.to_markdown.call_args.kwargs
     assert call_kwargs["file_path"] == files[0]
@@ -55,7 +54,7 @@ def test_convert_to_md_handles_errors_and_unsupported(mock_epub_parser_cls, tmp_
     target_dir = tmp_path / "output"
 
     epub_instance = mock_epub_parser_cls.return_value
-    # 2 виклики для двох epub файлів (broken.epub та good.epub)
+
     epub_instance.to_markdown.side_effect = [Exception("Parsing error"), None]
 
     files = [
