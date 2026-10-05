@@ -319,11 +319,12 @@ def test_images_to_md_success(mock_part, mock_sleep, mock_fetch_batch):
         "img2.jpg": b"bytes2",
     }
 
+    batch_size = 2
     results = images_to_md(
         file_name="test_book.pdf",
         client=client,
         model="gemini-pro",
-        prompt_text="Describe these {batch_size} images",
+        prompt_text=f"Describe these {batch_size} images",
         api_delay=2,
         max_api_retries=3,
         img_dict=img_dict,
