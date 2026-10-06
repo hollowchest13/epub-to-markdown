@@ -33,28 +33,43 @@ Windows (cmd / PowerShell)
 .venv\Scripts\activate
 uv pip install .
 ```
+
 Linux / macOS
 ```bash
 source .venv/bin/activate
 uv pip install .
 ```
-Usage
+
+## Configuration
+Edit settings.json to configure the default launch mode:
+
+```JSON
+{
+  "mode": "gui"
+}
+```
+Available modes: `gui` (default), `cli`, and `api`. 
+* `gui`: Launches the graphical interface (automatically falls back to CLI mode if a graphical environment is unavailable).
+* `cli`: Runs the command-line interface.
+* `api`: Automatically starts the FastAPI web server.
+
+## Usage
+
 CLI and GUI Modes
 Run the application in the default mode (GUI or CLI based on settings):
+
 ```bash
 convert
 ```
+
 Additional CLI options:
+
 ```bash
 convert --dir /path/to/files
 convert --set-key
 ```
-FastAPI Web Server
-Start the backend server using uvicorn:
-```bash
-uvicorn server.run_api:app --reload
-```
-API Endpoints
+
+### API Endpoints
 
 POST /convert: Accepts uploaded files (files) and a Gemini API key via the X-API-Key request header. Returns a ZIP archive (converted.zip) containing the structured Markdown files.
 
@@ -67,18 +82,6 @@ curl -X POST "http://localhost:8000/convert" -H "X-API-Key: your_gemini_api_key"
 ```
 But more comfortable use **Bruno** or **Postman**!
 
-Configuration
-Edit settings.json to configure the default launch mode:
-
-```JSON
-{
-  "mode": "gui"
-}
-```
-Available modes: `gui` (default), `cli`, and `api`. 
-* `gui`: Launches the graphical interface (automatically falls back to CLI mode if a graphical environment is unavailable).
-* `cli`: Runs the command-line interface.
-* `api`: Automatically starts the FastAPI web server.
 
 ## Screenshots
 
