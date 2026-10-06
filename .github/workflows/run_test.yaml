@@ -17,7 +17,7 @@ jobs:
         with:
           enable-cache: true # Enable caching so that dependencies aren't downloaded from scratch every time.
 
-      # 2. Встановлюємо Python
+      # 2. Installing Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -26,5 +26,5 @@ jobs:
       # 3. Synchronizing dependencies and running tests
       - name: Install dependencies and run tests
         run: |
-          uv sync --all-extras --dev
+          uv sync --group dev
           uv run pytest --cov=. --cov-branch --cov-report=term-missing
