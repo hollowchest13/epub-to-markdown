@@ -1,0 +1,31 @@
+name: CI with uv
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. Встановлюємо uv
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true # Вмикаємо кешування, щоб залежності не качалися щоразу заново
+          # version: "latest" # Можна вказати конкретну версію або залишити останню
+
+      # 2. Встановлюємо Python (uv робить це миттєво)
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: "pyproject.toml" # або вкажіть конкретну, наприклад '3.11'
+
+      # 3. Синхронізуємо залежності та запускаємо тести
+      - name: Install dependencies and run tests
+        run: |
+          uv sync --all-extras --dev
+          uv run pytest --cov=. --cov-branch --cov-report=term-missing
