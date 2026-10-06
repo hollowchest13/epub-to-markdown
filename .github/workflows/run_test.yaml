@@ -1,7 +1,7 @@
 name: CI with uv
 
 on:
-  pull_request::
+  pull_request:
     branches: [ "main" ]
 
 jobs:
@@ -11,20 +11,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Встановлюємо uv
+      # 1.Installing uv
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
-          enable-cache: true # Вмикаємо кешування, щоб залежності не качалися щоразу заново
-          # version: "latest" # Можна вказати конкретну версію або залишити останню
+          enable-cache: true # Enable caching so that dependencies aren't downloaded from scratch every time.
 
-      # 2. Встановлюємо Python (uv робить це миттєво)
+      # 2. Встановлюємо Python
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: "pyproject.toml" # або вкажіть конкретну, наприклад '3.11'
+          python-version-file: "pyproject.toml"
 
-      # 3. Синхронізуємо залежності та запускаємо тести
+      # 3. Synchronizing dependencies and running tests
       - name: Install dependencies and run tests
         run: |
           uv sync --all-extras --dev
